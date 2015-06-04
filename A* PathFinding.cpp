@@ -265,7 +265,7 @@ void main() {
 		cury = nexty;
 	}
 
-	//print(n);
+	print(n);
 	for (int i = pointer - 1; i >= 0; i--) {
 		cout << path[i] << ", ";
 	}
