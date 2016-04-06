@@ -13,20 +13,20 @@ static int dircostmap[4][4] = { {1, 2, 3, 2}, {2, 1, 2, 3}, {3, 2, 1, 2}, {2, 3,
 
 class node {        // block map node (meant to be created as an array)
 	int id;         // block ID
-	int x, y, d;	// coordinates & direction
+	int x, y;   	// x and y coords of node
 	int g, h;		// g & h costs
-	int xp, yp;		// parent coordinates
+	int xp, yp, d;	// parent coordinates and direction of parent from current node
 	int status;		// unvisited/open/closed status (0/1/2 respectively)
 	public:
 		node() {
-			id = NULL;
+			id = 0;
 			x = NULL;
 			y = NULL;
-			d = NULL;
-			g = NULL;
-			h = NULL;
+			g = NULL;   // g cost (cost needed to get to current node from start)
+			h = NULL;   // h cost (projected cost to get from current node to end)
 			xp = NULL;
 			yp = NULL;
+			d = NULL;
 			status = 0;
 		}
 		node(int xi, int yi) {
@@ -37,12 +37,12 @@ class node {        // block map node (meant to be created as an array)
 		int getid() { return id; }
 		int getx() { return x; }
 		int gety() { return y; }
-		int getd() { return d; }
 		int getf() { return g + h; }
 		int getg() { return g; }
 		int geth() { return h; }
 		int getxp() { return xp; }
 		int getyp() { return yp; }
+		int getd() { return d; }
 		int getstatus() { return status; }
 		void setid(int i) { id = i; }
 		void setx(int xi) { x = xi; }
@@ -64,10 +64,8 @@ class node {        // block map node (meant to be created as an array)
 		}
 		void calch(int xf, int yf) {
 			int dir = 0;
-			d = (d + 2)%4;
 			if ((d%2 == 0)&&(xf - x != 0) || (d%2 == 1)&&(yf - y != 0)) { dir = 1; }
-			if ((d == 0)&&(yf < y) || (d == 1)&&(xf < x) || (d == 2)&&(yf > y) || (d == 3)&&(xf > x)) { dir = 2; }
-			d = (d + 2)%4;
+			if ((d == 2)&&(yf < y) || (d == 3)&&(xf < x) || (d == 0)&&(yf > y) || (d == 1)&&(xf > x)) { dir = 2; }
 			h = abs(xf - x) + abs(yf - y) + dir;    // cost if all nodes travelled to finish from current node were walkable
 			h *= hfactor;
 		}
@@ -79,6 +77,7 @@ void initializeNodeCoords(node a[SIZE][SIZE]) {
 			a[i][j].setxy(i, j);
 		}
 	}
+	a[startx][starty].setd(2);
 }
 
 void printValues(node n[SIZE][SIZE]) {
@@ -86,7 +85,7 @@ void printValues(node n[SIZE][SIZE]) {
 	for (int i = SIZE - 1; i >= 0; i--) {	// y-coords
 		cout << " |\t";
 		for (int j = 0; j < SIZE; j++) {	// x-coords
-			cout << n[j][i].getx() << "," << n[j][i].gety() << "\t";	// node coords
+			cout << n[j][i].getx() << "," << n[j][i].gety() << "," << n[j][i].getid() << "\t";	// node coords
 		}
 		cout << endl << " |\t";
 		for (int j = 0; j < SIZE; j++) {
@@ -145,7 +144,7 @@ void lowestF(node n[SIZE][SIZE], int &x, int &y) {
 	}
 }
 
-void aStar(node n[SIZE][SIZE], int path[SIZE*SIZE], int &pathlength, int x0, int y0, int x1, int y1) {
+void aStarPath(node n[SIZE][SIZE], int path[SIZE*SIZE], int &pathlength, int x0, int y0, int x1, int y1) {
     int curx = x0, cury = y0;
 	int oldg;
 
@@ -258,29 +257,41 @@ void aStar(node n[SIZE][SIZE], int path[SIZE*SIZE], int &pathlength, int x0, int
 	cury = y1;
 
 	while (curx != x0 || cury != y0) {  // while not at starting node
-		path[pathlength] = n[curx][cury].getd();    // set movement needed to get to current node
+		path[pathlength] = (n[curx][cury].getd() + 2)%4;    // set movement needed to get to current node from parent (reverse of direction to parent)
 		pathlength++;   // iterate path length
 		nextx = n[curx][cury].getxp();  // go to parent cell next
 		nexty = n[curx][cury].getyp();
 		curx = nextx;
 		cury = nexty;
 	}
+
+    int temp, last = pathlength - 1;
+
+    for (int i = 0; i < pathlength/2; i++) { // reverse path array so returned array is sequential instructions on which direction to go
+        temp = path[i];
+        path[i] = path[last];
+        path[last] = temp;
+
+        last--;
+    }
 }
 
 int main() {
 	node n[SIZE][SIZE];
-	//print(b);
 	initializeNodeCoords(n);
 	setWalls(n);
     int path[SIZE*SIZE], pathlength;
 
-    aStar(n, path, pathlength, startx, starty, stopx, stopy);
+    aStarPath(n, path, pathlength, startx, starty, stopx, stopy);
 
 	printValues(n);
-	for (int i = pathlength - 1; i >= 0; i--) {
+	printMap(n);
+	for (int i = 0; i < pathlength; i++) {
 		cout << path[i] << ", ";
 	}
 	cout << endl;
+
+	cout << "Cost: " << n[stopx][stopy].getg() << endl;
 
 	return 0;
 }
