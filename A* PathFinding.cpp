@@ -170,10 +170,10 @@ void printMap(node n[XSIZE][YSIZE][ZSIZE], int curx, int cury, int curz) {
                 else {
                     switch (n[k][i][j].getid()) {
                         case 0:
-                            cout << ".";
+                            cout << (char)176;
                             break;
                         default:
-                            cout << "0";
+                            cout << (char)219;
                     }
                 }
             }
@@ -379,10 +379,10 @@ void aStarPath(node n[XSIZE][YSIZE][ZSIZE], int path[XSIZE*YSIZE*ZSIZE], int &pa
         zdiff = n[curx][cury][curz].getz() - n[curx][cury][curz].getzp();   // -1 if parent above, 0 if no change, 1 if parent below
         switch (zdiff) {
             case 1: // if parent below
-                path[pathlength] = 4;   // set movement needed to get to current node to go up
+                path[pathlength] = 4;   // set movement direction needed to get to current node to go up
                 break;
             case -1:    // if parent above
-                path[pathlength] = 5;   // set movement needed to get to current node to go down
+                path[pathlength] = 5;   // set movement direction needed to get to current node to go down
                 break;
             default: // if on same z-coord as parent
                 path[pathlength] = (n[curx][cury][curz].getd() + 2)%4;  // set movement needed to get to current node from parent (reverse of direction to parent)
