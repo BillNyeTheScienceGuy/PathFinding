@@ -5,9 +5,9 @@
 
 using namespace std;
 
-#define XSIZE 5    // upper limit: 159; lower limit: 2
-#define YSIZE 5    //
-#define ZSIZE 2    //
+#define XSIZE 5	// upper limit: 159; lower limit: 2
+#define YSIZE 5	//
+#define ZSIZE 2	//
 
 int startx = 0, starty = 0, startz = 0, startd = 0;
 int stopx = XSIZE - 1, stopy = YSIZE - 1, stopz = ZSIZE - 1;
@@ -15,20 +15,20 @@ int hfactor = 1;	// higher the factor, faster the solution but not guaranteed to
 
 static int dircostmap[4][4] = { {1, 2, 3, 2}, {2, 1, 2, 3}, {3, 2, 1, 2}, {2, 3, 2, 1} };	// maps move costs with directions
 
-class node {            // block map node (meant to be created as an array)
-	int id;             // block ID
-	int x, y, z;        // x, y, and z coords of node
-	int g, h;           // g & h costs
-	int xp, yp, zp, d;  // parent coordinates and direction of parent from current node
-	int status;         // unvisited/open/closed status (0/1/2 respectively)
+class node {			// block map node (meant to be created as an array)
+	int id;				// block ID
+	int x, y, z;		// x, y, and z coords of node
+	int g, h;			// g & h costs
+	int xp, yp, zp, d;	// parent coordinates and direction of parent from current node
+	int status;			// unvisited/open/closed status (0/1/2 respectively)
 	public:
 		node() {
 			id = 0;
 			x = NULL;
 			y = NULL;
 			z = NULL;
-			g = NULL;   // g cost (cost needed to get to current node from start)
-			h = NULL;   // h cost (projected cost to get from current node to end)
+			g = NULL;	// g cost (cost needed to get to current node from start)
+			h = NULL;	// h cost (projected cost to get from current node to end)
 			xp = NULL;
 			yp = NULL;
 			zp = NULL;
@@ -68,7 +68,7 @@ class node {            // block map node (meant to be created as an array)
 			xp = parent.getx();
 			yp = parent.gety();
 			zp = parent.getz();
-			if (z == zp) {  // if z-coord hasn't changed
+			if (z == zp) {	// if z-coord hasn't changed
 				d = ((xp - x) > 0) + 2*((yp - y) < 0) + 3*((xp - x) < 0);	// set direction to point at parent
 			}
 			else {
@@ -77,15 +77,15 @@ class node {            // block map node (meant to be created as an array)
 		}
 		void setstatus(int s) { status = s; }
 		void calcg(node parent) {
-			g = parent.getg();  // previous movement cost
-			if (z == parent.getz()) { g += dircostmap[parent.getd()][d]; }   // x-y direction cost (uses direction faced in previous node and current direction facing now)
-			else { g += 1; }    // z direction cost
+			g = parent.getg();	// previous movement cost
+			if (z == parent.getz()) { g += dircostmap[parent.getd()][d]; }	// x-y direction cost (uses direction faced in previous node and current direction facing now)
+			else { g += 1; }	// z direction cost
 		}
 		void calch(int xf, int yf, int zf) {
 			int dir = 0;
 			if ((d%2 == 0)&&(xf - x != 0) || (d%2 == 1)&&(yf - y != 0)) { dir = 1; }
 			if ((d == 2)&&(yf < y) || (d == 3)&&(xf < x) || (d == 0)&&(yf > y) || (d == 1)&&(xf > x)) { dir = 2; }
-			h = abs(xf - x) + abs(yf - y) + abs(zf - z) + dir;    // cost if all nodes travelled to finish from current node were walkable
+			h = abs(xf - x) + abs(yf - y) + abs(zf - z) + dir;	// cost if all nodes travelled to finish from current node were walkable
 			h *= hfactor;
 		}
 };
@@ -124,7 +124,7 @@ void printValues(node n[XSIZE][YSIZE][ZSIZE]) {
 		for (int j = YSIZE - 1; j >= 0; j--) {	// y-coords
 			cout << " |\t";
 			for (int k = 0; k < XSIZE; k++) {	// x-coords
-				cout << n[k][j][i].getx() << "," << n[k][j][i].gety() << "," << n[k][j][i].getid() << "\t";	// node coords
+				cout << n[k][j][i].getx() << "," << n[k][j][i].gety() << "," << n[k][j][i].getid() << "\t";		// node coords
 			}
 			cout << endl << " |\t";
 			for (int k = 0; k < XSIZE; k++) {
@@ -216,147 +216,147 @@ void aStarPath(node n[XSIZE][YSIZE][ZSIZE], int path[XSIZE*YSIZE*ZSIZE], int &pa
 
 	printMap(n, -1, -1, -1);
 
-	n[curx][cury][curz].setstatus(1); // open starting node
+	n[curx][cury][curz].setstatus(1);	// open starting node
 	lowestF(n, curx, cury, curz);	// set the current x, y coords to the node with the lowest F score
 
 	while (n[x1][y1][z1].getstatus() != 2 && curx >= 0 && cury >= 0 && curz >= 0) {	// while final node is not closed and open list is not empty
 
 		printMap(n, curx, cury, curz);
 
-		if (curx + 1 < XSIZE) {	// if there's a node in the positive x direction
-			if (n[curx + 1][cury][curz].getid() == 0) {	// if the node is walkable
+		if (curx + 1 < XSIZE) {														// if there's a node in the positive x direction
+			if (n[curx + 1][cury][curz].getid() == 0) {								// if the node is walkable
 				switch (n[curx + 1][cury][curz].getstatus()) {
-					case 1:	// if the node is in the open list
-						oldg = n[curx + 1][cury][curz].getg();	// save the old G score for comparison
-						n[curx + 1][cury][curz].calcg(n[curx][cury][curz]);	// recalculate a new G score
-						if (n[curx + 1][cury][curz].getg() >= oldg) {	// if the new G score is not less than the old
-							n[curx + 1][cury][curz].setg(oldg);	// set the score back to the old
+					case 1:															// if the node is in the open list
+						oldg = n[curx + 1][cury][curz].getg();						// save the old G score for comparison
+						n[curx + 1][cury][curz].calcg(n[curx][cury][curz]);			// recalculate a new G score
+						if (n[curx + 1][cury][curz].getg() >= oldg) {				// if the new G score is not less than the old
+							n[curx + 1][cury][curz].setg(oldg);						// set the score back to the old
 						}
 						else {
 							n[curx + 1][cury][curz].setxyzp(n[curx][cury][curz]);	// else set the node's parent to current node
-							n[curx + 1][cury][curz].calch(x1, y1, z1);	// recalculate the H score
+							n[curx + 1][cury][curz].calch(x1, y1, z1);				// recalculate the H score
 						}
 						break;
-					case 0:	// if the node is not in a list
-						n[curx + 1][cury][curz].setstatus(1);	// place in open list
-						n[curx + 1][cury][curz].setxyzp(n[curx][cury][curz]);	// set the node's parent to current node
-						n[curx + 1][cury][curz].calcg(n[curx][cury][curz]);	// calculate the G score
-						n[curx + 1][cury][curz].calch(x1, y1, z1);	// calculate the H score
+					case 0:															// if the node is not in a list
+						n[curx + 1][cury][curz].setstatus(1);						// place in open list
+						n[curx + 1][cury][curz].setxyzp(n[curx][cury][curz]);		// set the node's parent to current node
+						n[curx + 1][cury][curz].calcg(n[curx][cury][curz]);			// calculate the G score
+						n[curx + 1][cury][curz].calch(x1, y1, z1);					// calculate the H score
 						break;
 				}
 			}
 		}
-		if (curx > 0) {	// if there's a node in the negative x direction
-			if (n[curx - 1][cury][curz].getid() == 0) {	// if the node is walkable
+		if (curx > 0) {																// if there's a node in the negative x direction
+			if (n[curx - 1][cury][curz].getid() == 0) {								// if the node is walkable
 				switch (n[curx - 1][cury][curz].getstatus()) {
-					case 1:	// if the node is in the open list
-						oldg = n[curx - 1][cury][curz].getg();	// save the old G score for comparison
-						n[curx - 1][cury][curz].calcg(n[curx][cury][curz]);	// recalculate a new G score
-						if (n[curx - 1][cury][curz].getg() >= oldg) {	// if the new G score is not less than the old
-							n[curx - 1][cury][curz].setg(oldg);	// set the score back to the old
+					case 1:															// if the node is in the open list
+						oldg = n[curx - 1][cury][curz].getg();						// save the old G score for comparison
+						n[curx - 1][cury][curz].calcg(n[curx][cury][curz]);			// recalculate a new G score
+						if (n[curx - 1][cury][curz].getg() >= oldg) {				// if the new G score is not less than the old
+							n[curx - 1][cury][curz].setg(oldg);						// set the score back to the old
 						}
 						else {
 							n[curx - 1][cury][curz].setxyzp(n[curx][cury][curz]);	// else set the node's parent to current node
-							n[curx - 1][cury][curz].calch(x1, y1, z1);	// recalculate the H score
+							n[curx - 1][cury][curz].calch(x1, y1, z1);				// recalculate the H score
 						}
 						break;
-					case 0:	// if the node is not in a list
-						n[curx - 1][cury][curz].setstatus(1);	// place in open list
-						n[curx - 1][cury][curz].setxyzp(n[curx][cury][curz]);	// set the node's parent to current node
-						n[curx - 1][cury][curz].calcg(n[curx][cury][curz]);	// calculate the G score
-						n[curx - 1][cury][curz].calch(x1, y1, z1);	// calculate the H score
+					case 0:															// if the node is not in a list
+						n[curx - 1][cury][curz].setstatus(1);						// place in open list
+						n[curx - 1][cury][curz].setxyzp(n[curx][cury][curz]);		// set the node's parent to current node
+						n[curx - 1][cury][curz].calcg(n[curx][cury][curz]);			// calculate the G score
+						n[curx - 1][cury][curz].calch(x1, y1, z1);					// calculate the H score
 						break;
 				}
 			}
 		}
-		if (cury + 1 < YSIZE) {	// if there's a node in the positive y direction
-			if (n[curx][cury + 1][curz].getid() == 0) {	// if the node is walkable
+		if (cury + 1 < YSIZE) {														// if there's a node in the positive y direction
+			if (n[curx][cury + 1][curz].getid() == 0) {								// if the node is walkable
 				switch (n[curx][cury + 1][curz].getstatus()) {
-					case 1:	// if the node is in the open list
-						oldg = n[curx][cury + 1][curz].getg();	// save the old G score for comparison
-						n[curx][cury + 1][curz].calcg(n[curx][cury][curz]);	// recalculate a new G score
-						if (n[curx][cury + 1][curz].getg() >= oldg) {	// if the new G score is not less than the old
-							n[curx][cury + 1][curz].setg(oldg);	// set the score back to the old
+					case 1:															// if the node is in the open list
+						oldg = n[curx][cury + 1][curz].getg();						// save the old G score for comparison
+						n[curx][cury + 1][curz].calcg(n[curx][cury][curz]);			// recalculate a new G score
+						if (n[curx][cury + 1][curz].getg() >= oldg) {				// if the new G score is not less than the old
+							n[curx][cury + 1][curz].setg(oldg);						// set the score back to the old
 						}
 						else {
 							n[curx][cury + 1][curz].setxyzp(n[curx][cury][curz]);	// else set the node's parent to current node
-							n[curx][cury + 1][curz].calch(x1, y1, z1);	// recalculate the H score
+							n[curx][cury + 1][curz].calch(x1, y1, z1);				// recalculate the H score
 						}
 						break;
-					case 0:	// if the node is not in a list
-						n[curx][cury + 1][curz].setstatus(1);	// place in open list
-						n[curx][cury + 1][curz].setxyzp(n[curx][cury][curz]);	// set the node's parent to current node
-						n[curx][cury + 1][curz].calcg(n[curx][cury][curz]);	// calculate the G score
-						n[curx][cury + 1][curz].calch(x1, y1, z1);	// calculate the H score
+					case 0:															// if the node is not in a list
+						n[curx][cury + 1][curz].setstatus(1);						// place in open list
+						n[curx][cury + 1][curz].setxyzp(n[curx][cury][curz]);		// set the node's parent to current node
+						n[curx][cury + 1][curz].calcg(n[curx][cury][curz]);			// calculate the G score
+						n[curx][cury + 1][curz].calch(x1, y1, z1);					// calculate the H score
 						break;
 				}
 			}
 		}
-		if (cury > 0) {	// if there's a node in the negative y direction
-			if (n[curx][cury - 1][curz].getid() == 0) {	// if the node is walkable
+		if (cury > 0) {																// if there's a node in the negative y direction
+			if (n[curx][cury - 1][curz].getid() == 0) {								// if the node is walkable
 				switch (n[curx][cury - 1][curz].getstatus()) {
-					case 1:	// if the node is in the open list
-						oldg = n[curx][cury - 1][curz].getg();	// save the old G score for comparison
-						n[curx][cury - 1][curz].calcg(n[curx][cury][curz]);	// recalculate a new G score
-						if (n[curx][cury - 1][curz].getg() >= oldg) {	// if the new G score is not less than the old
-							n[curx][cury - 1][curz].setg(oldg);	// set the score back to the old
+					case 1:															// if the node is in the open list
+						oldg = n[curx][cury - 1][curz].getg();						// save the old G score for comparison
+						n[curx][cury - 1][curz].calcg(n[curx][cury][curz]);			// recalculate a new G score
+						if (n[curx][cury - 1][curz].getg() >= oldg) {				// if the new G score is not less than the old
+							n[curx][cury - 1][curz].setg(oldg);						// set the score back to the old
 						}
 						else {
 							n[curx][cury - 1][curz].setxyzp(n[curx][cury][curz]);	// else set the node's parent to current node
-							n[curx][cury - 1][curz].calch(x1, y1, z1);	// recalculate the H score
+							n[curx][cury - 1][curz].calch(x1, y1, z1);				// recalculate the H score
 						}
 						break;
-					case 0:	// if the node is not in a list
-						n[curx][cury - 1][curz].setstatus(1);	// place in open list
-						n[curx][cury - 1][curz].setxyzp(n[curx][cury][curz]);	// set the node's parent to current node
-						n[curx][cury - 1][curz].calcg(n[curx][cury][curz]);	// calculate the G score
-						n[curx][cury - 1][curz].calch(x1, y1, z1);	// calculate the H score
+					case 0:															// if the node is not in a list
+						n[curx][cury - 1][curz].setstatus(1);						// place in open list
+						n[curx][cury - 1][curz].setxyzp(n[curx][cury][curz]);		// set the node's parent to current node
+						n[curx][cury - 1][curz].calcg(n[curx][cury][curz]);			// calculate the G score
+						n[curx][cury - 1][curz].calch(x1, y1, z1);					// calculate the H score
 						break;
 				}
 			}
 		}
-		if (curz + 1 < ZSIZE) { // if there's a node in the positive z direction
-			if (n[curx][cury][curz + 1].getid() == 0) {  // if the node is walkable
+		if (curz + 1 < ZSIZE) {														// if there's a node in the positive z direction
+			if (n[curx][cury][curz + 1].getid() == 0) {								// if the node is walkable
 				switch (n[curx][cury][curz + 1].getstatus()) {
-					case 1: // if the node is in the open list
-						oldg = n[curx][cury][curz + 1].getg();  // save the old G score for comparison
-						n[curx][cury][curz + 1].calcg(n[curx][cury][curz]); // recalculate a new G score
-						if (n[curx][cury][curz + 1].getg() >= oldg) {   // if the new G score is not less than the old
-							n[curx][cury][curz + 1].setg(oldg); // set the score back to the old
+					case 1:															// if the node is in the open list
+						oldg = n[curx][cury][curz + 1].getg();						// save the old G score for comparison
+						n[curx][cury][curz + 1].calcg(n[curx][cury][curz]);			// recalculate a new G score
+						if (n[curx][cury][curz + 1].getg() >= oldg) {				// if the new G score is not less than the old
+							n[curx][cury][curz + 1].setg(oldg);						// set the score back to the old
 						}
 						else {
-							n[curx][cury][curz + 1].setxyzp(n[curx][cury][curz]);  // else set the node's parent to current node
-							n[curx][cury][curz + 1].calch(x1, y1, z1);  // recalculate the H score
+							n[curx][cury][curz + 1].setxyzp(n[curx][cury][curz]);	// else set the node's parent to current node
+							n[curx][cury][curz + 1].calch(x1, y1, z1);				// recalculate the H score
 						}
 						break;
-					case 0: // if the node is not in a list
-						n[curx][cury][curz + 1].setstatus(1);	// place in open list
-						n[curx][cury][curz + 1].setxyzp(n[curx][cury][curz]);	// set the node's parent to current node
-						n[curx][cury][curz + 1].calcg(n[curx][cury][curz]);	// calculate the G score
-						n[curx][cury][curz + 1].calch(x1, y1, z1);	// calculate the H score
+					case 0:															// if the node is not in a list
+						n[curx][cury][curz + 1].setstatus(1);						// place in open list
+						n[curx][cury][curz + 1].setxyzp(n[curx][cury][curz]);		// set the node's parent to current node
+						n[curx][cury][curz + 1].calcg(n[curx][cury][curz]);			// calculate the G score
+						n[curx][cury][curz + 1].calch(x1, y1, z1);					// calculate the H score
 					break;
 				}
 			}
 		}
-		if (curz > 0) { // if there's a node in the negative z direction
-			if (n[curx][cury][curz - 1].getid() == 0) {  // if the node is walkable
+		if (curz > 0) {																// if there's a node in the negative z direction
+			if (n[curx][cury][curz - 1].getid() == 0) {								// if the node is walkable
 				switch (n[curx][cury][curz - 1].getstatus()) {
-					case 1: // if the node is in the open list
-						oldg = n[curx][cury][curz - 1].getg();  // save the old G score for comparison
-						n[curx][cury][curz - 1].calcg(n[curx][cury][curz]); // recalculate a new G score
-						if (n[curx][cury][curz - 1].getg() >= oldg) {   // if the new G score is not less than the old
-							n[curx][cury][curz - 1].setg(oldg); // set the score back to the old
+					case 1:															// if the node is in the open list
+						oldg = n[curx][cury][curz - 1].getg();						// save the old G score for comparison
+						n[curx][cury][curz - 1].calcg(n[curx][cury][curz]);			// recalculate a new G score
+						if (n[curx][cury][curz - 1].getg() >= oldg) {				// if the new G score is not less than the old
+							n[curx][cury][curz - 1].setg(oldg);						// set the score back to the old
 						}
 						else {
-							n[curx][cury][curz - 1].setxyzp(n[curx][cury][curz]);  // else set the node's parent to current node
-							n[curx][cury][curz - 1].calch(x1, y1, z1);  // recalculate the H score
+							n[curx][cury][curz - 1].setxyzp(n[curx][cury][curz]);	// else set the node's parent to current node
+							n[curx][cury][curz - 1].calch(x1, y1, z1);				// recalculate the H score
 						}
 						break;
-					case 0: // if the node is not in a list
-						n[curx][cury][curz - 1].setstatus(1);	// place in open list
-						n[curx][cury][curz - 1].setxyzp(n[curx][cury][curz]);	// set the node's parent to current node
-						n[curx][cury][curz - 1].calcg(n[curx][cury][curz]);	// calculate the G score
-						n[curx][cury][curz - 1].calch(x1, y1, z1);	// calculate the H score
+					case 0:															// if the node is not in a list
+						n[curx][cury][curz - 1].setstatus(1);						// place in open list
+						n[curx][cury][curz - 1].setxyzp(n[curx][cury][curz]);		// set the node's parent to current node
+						n[curx][cury][curz - 1].calcg(n[curx][cury][curz]);			// calculate the G score
+						n[curx][cury][curz - 1].calch(x1, y1, z1);					// calculate the H score
 						break;
 				}
 			}
@@ -366,29 +366,29 @@ void aStarPath(node n[XSIZE][YSIZE][ZSIZE], int path[XSIZE*YSIZE*ZSIZE], int &pa
 		lowestF(n, curx, cury, curz);	// set the current x, y coords to the node with the lowest F score
 	}
 
-	if (n[x1][y1][z1].getg() == 0) { return; }  // if no cost required to get to end, this means either start and/or finish are unwalkable or start = finish
+	if (n[x1][y1][z1].getg() == 0) { return; }	// if no cost required to get to end, this means either start and/or finish are unwalkable or start = finish
 
 	pathlength = 0;
-	int nextx, nexty, nextz;   // middle-men integers to prevent curx and cury from changing before done calling functions
-	int zdiff;  // difference between node z and parent z
+	int nextx, nexty, nextz;	// middle-men integers to prevent curx and cury from changing before done calling functions
+	int zdiff;	// difference between node z and parent z
 	curx = x1;
 	cury = y1;
 	curz = z1;
 
-	while (curx != x0 || cury != y0 || curz != z0) {  // while not at starting node
-		zdiff = n[curx][cury][curz].getz() - n[curx][cury][curz].getzp();   // -1 if parent above, 0 if no change, 1 if parent below
+	while (curx != x0 || cury != y0 || curz != z0) {	// while not at starting node
+		zdiff = n[curx][cury][curz].getz() - n[curx][cury][curz].getzp();	// -1 if parent above, 0 if no change, 1 if parent below
 		switch (zdiff) {
-			case 1: // if parent below
-				path[pathlength] = 4;   // set movement direction needed to get to current node to go up
+			case 1:														// if parent below
+				path[pathlength] = 4;									// set movement direction needed to get to current node to go up
 				break;
-			case -1:    // if parent above
-				path[pathlength] = 5;   // set movement direction needed to get to current node to go down
+			case -1:													// if parent above
+				path[pathlength] = 5;									// set movement direction needed to get to current node to go down
 				break;
-			default: // if on same z-coord as parent
-				path[pathlength] = (n[curx][cury][curz].getd() + 2)%4;  // set movement needed to get to current node from parent (reverse of direction to parent)
+			default:													// if on same z-coord as parent
+				path[pathlength] = (n[curx][cury][curz].getd() + 2)%4;	// set movement needed to get to current node from parent (reverse of direction to parent)
 		}
-		pathlength++;   // iterate path length
-		nextx = n[curx][cury][curz].getxp();  // go to parent cell next
+		pathlength++;	// iterate path length
+		nextx = n[curx][cury][curz].getxp();	// go to parent cell next
 		nexty = n[curx][cury][curz].getyp();
 		nextz = n[curx][cury][curz].getzp();
 		curx = nextx;
@@ -398,7 +398,7 @@ void aStarPath(node n[XSIZE][YSIZE][ZSIZE], int path[XSIZE*YSIZE*ZSIZE], int &pa
 
 	int temp, last = pathlength - 1;
 
-	for (int i = 0; i < pathlength/2; i++) { // reverse path array so resulting array is sequential instructions on which direction to go
+	for (int i = 0; i < pathlength/2; i++) {	// reverse path array so resulting array is sequential instructions on which direction to go
 		temp = path[i];
 		path[i] = path[last];
 		path[last] = temp;
@@ -410,7 +410,7 @@ void aStarPath(node n[XSIZE][YSIZE][ZSIZE], int path[XSIZE*YSIZE*ZSIZE], int &pa
 int main() {
 	node n[XSIZE][YSIZE][ZSIZE];
 	initializeNodeCoords(n);
-	n[startx][starty][startz].setd((startd + 2)%4);  // set starting direction
+	n[startx][starty][startz].setd((startd + 2)%4);	// set starting direction
 	generateRandomMaze(n);
 	int path[XSIZE*YSIZE*ZSIZE], pathlength;
 
