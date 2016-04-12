@@ -24,21 +24,22 @@ class node {			// block map node (meant to be created as an array)
 	public:
 		node() {
 			id = 0;
-			x = NULL;
-			y = NULL;
-			z = NULL;
-			g = NULL;	// g cost (cost needed to get to current node from start)
-			h = NULL;	// h cost (projected cost to get from current node to end)
-			xp = NULL;
-			yp = NULL;
-			zp = NULL;
-			d = NULL;
+			x = 0;
+			y = 0;
+			z = 0;
+			g = 0;	// g cost (cost needed to get to current node from start)
+			h = 0;	// h cost (projected cost to get from current node to end)
+			xp = 0;
+			yp = 0;
+			zp = 0;
+			d = 0;
 			status = 0;
 		}
 		node(int xi, int yi, int zi) {
 			x = xi;
 			y = yi;
 			z = zi;
+
 		}
 		int abs(int n) { return (n < 0) ? -1*n : n; }
 		int getid() { return id; }
@@ -90,15 +91,15 @@ class node {			// block map node (meant to be created as an array)
 		}
 };
 
-void initializeNodeCoords(node a[XSIZE][YSIZE][ZSIZE]) {
+void initializeNodeCoords(node n[XSIZE][YSIZE][ZSIZE]) {
 	for (int i = 0; i < XSIZE; i++) {
 		for (int j = 0; j < YSIZE; j++) {
 			for (int k = 0; k < ZSIZE; k++) {
-				a[i][j][k].setxyz(i, j, k);
+				n[i][j][k].setxyz(i, j, k);
 			}
 		}
 	}
-	a[startx][starty][startz].setd(2);
+	n[startx][starty][startz].setd(2);
 }
 
 void generateRandomMaze(node n[XSIZE][YSIZE][ZSIZE]) {
@@ -144,7 +145,7 @@ void printValues(node n[XSIZE][YSIZE][ZSIZE]) {
 		}
 }
 
-void printMap(node n[XSIZE][YSIZE][ZSIZE], int curx, int cury, int curz) {
+void printMap(node n[XSIZE][YSIZE][ZSIZE], int curx = -1, int cury = -1, int curz = -1) {
 	for (int i = YSIZE - 1; i >= 0; i--) {
 		for (int j = 0; j < ZSIZE; j++) {
 			cout << "\t";
@@ -214,14 +215,14 @@ void aStarPath(node n[XSIZE][YSIZE][ZSIZE], int path[XSIZE*YSIZE*ZSIZE], int &pa
 	int curx = x0, cury = y0, curz = z0;
 	int oldg;
 
-	printMap(n, -1, -1, -1);
+	//printMap(n, -1, -1, -1);
 
 	n[curx][cury][curz].setstatus(1);	// open starting node
 	lowestF(n, curx, cury, curz);	// set the current x, y coords to the node with the lowest F score
 
 	while (n[x1][y1][z1].getstatus() != 2 && curx >= 0 && cury >= 0 && curz >= 0) {	// while final node is not closed and open list is not empty
 
-		printMap(n, curx, cury, curz);
+		//printMap(n, curx, cury, curz);
 
 		if (curx + 1 < XSIZE) {														// if there's a node in the positive x direction
 			if (n[curx + 1][cury][curz].getid() == 0) {								// if the node is walkable
@@ -407,22 +408,87 @@ void aStarPath(node n[XSIZE][YSIZE][ZSIZE], int path[XSIZE*YSIZE*ZSIZE], int &pa
 	}
 }
 
+bool sense(node t[XSIZE][YSIZE][ZSIZE], node m[XSIZE][YSIZE][ZSIZE], int curx, int cury, int curz, int curd) {
+	bool changed = false;
+
+	// get id of block in front of turtle
+	if (curd == 0 && cury + 1 < YSIZE) {
+		if (t[curx][cury + 1][curz].getid() != m[curx][cury + 1][curz].getid()) {
+			t[curx][cury + 1][curz].setid(m[curx][cury + 1][curz].getid());
+			changed = true;
+		}
+	}
+	if (curd == 1 && curx + 1 < XSIZE) {
+		if (t[curx + 1][cury][curz].getid() != m[curx + 1][cury][curz].getid()) {
+			t[curx + 1][cury][curz].setid(m[curx + 1][cury][curz].getid());
+			changed = true;
+		}
+	}
+	if (curd == 2 && cury > 0) {
+		if (t[curx][cury - 1][curz].getid() != m[curx][cury - 1][curz].getid()) {
+			t[curx][cury - 1][curz].setid(m[curx][cury - 1][curz].getid());
+			changed = true;
+		}
+	}
+	if (curd == 3 && curx > 0) {
+		if (t[curx - 1][cury][curz].getid() != m[curx - 1][cury][curz].getid()) {
+			t[curx - 1][cury][curz].setid(m[curx - 1][cury][curz].getid());
+			changed = true;
+		}
+	}
+
+	// get id of blocks above and below turtle
+	if (curz + 1 < ZSIZE) {
+		if (t[curx][cury][curz + 1].getid() != m[curx][cury][curz + 1].getid()) {
+			t[curx][cury][curz + 1].setid(m[curx][cury][curz + 1].getid());
+			changed = true;
+		}
+	}
+	if (curz > 0) {
+		if (t[curx][cury][curz - 1].getid() != m[curx][cury][curz - 1].getid()) {
+			t[curx][cury][curz - 1].setid(m[curx][cury][curz - 1].getid());
+			changed = true;
+		}
+	}
+
+	return changed;
+}
+
+bool faceD(int &curd, int nexd) {
+	curd = nexd;
+}
+
 int main() {
-	node n[XSIZE][YSIZE][ZSIZE];
-	initializeNodeCoords(n);
-	n[startx][starty][startz].setd((startd + 2)%4);	// set starting direction
-	generateRandomMaze(n);
+	node t[XSIZE][YSIZE][ZSIZE];	// nodes turtle sees
+	node m[XSIZE][YSIZE][ZSIZE];	// actual map nodes
+	initializeNodeCoords(t);
+	initializeNodeCoords(m);
+	t[startx][starty][startz].setd((startd + 2)%4);	// set starting direction
+
 	int path[XSIZE*YSIZE*ZSIZE], pathlength;
+	bool solvable = false;
+	while (!solvable) {
+		generateRandomMaze(m);
+		aStarPath(m, path, pathlength, startx, starty, startz, stopx, stopy, stopz);
+		if (m[stopx][stopy][stopz].getg()) { solvable = true; }
+	}
+	printMap(m);
 
-	aStarPath(n, path, pathlength, startx, starty, startz, stopx, stopy, stopz);
+	int curx = startx, cury = starty, curz = startz, curd = startd;
 
-	//printValues(n);
+	/*aStarPath(t, path, pathlength, startx, starty, startz, stopx, stopy, stopz);
+	while (pathlength != 0) {
+
+	}*/
+
 	for (int i = 0; i < pathlength; i++) {
 		cout << path[i] << ", ";
 	}
 	cout << endl;
 
-	cout << "Cost: " << n[stopx][stopy][stopz].getg() << endl;
+	cout << "Cost: " << m[stopx][stopy][stopz].getg() << endl;
+
+	cout << sense(t, m, startx, starty, startz, startd) << endl;
 
 	return 0;
 }
