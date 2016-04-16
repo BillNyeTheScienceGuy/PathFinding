@@ -79,7 +79,8 @@ class node {			// block map node (meant to be created as an array)
 		void setstatus(int s) { status = s; }
 		void calcg(node parent) {
 			g = parent.getg();	// previous movement cost
-			if (z == parent.getz()) { g += dircostmap[parent.getd()][d]; }	// x-y direction cost (uses direction faced in previous node and current direction facing now)
+			int dir = ((parent.getx() - x) > 0) + 2*((parent.gety() - y) < 0) + 3*((parent.getx() - x) < 0);	// direction to the parent currently being calculated
+			if (z == parent.getz()) { g += dircostmap[parent.getd()][dir]; /*cout << parent.getd() << " (" << parent.getx() << ", " << parent.gety() << "), " << dir << " (" << x << ", " << y << "): " << parent.getg() << " + " << dircostmap[parent.getd()][dir] << " = " << g << endl;*/ }	// x-y direction cost (uses direction faced in previous node and current direction facing now)
 			else { g += 1; }	// z direction cost
 		}
 		void calch(int xf, int yf, int zf) {
@@ -102,10 +103,32 @@ void initializeNodeCoords(node n[XSIZE][YSIZE][ZSIZE]) {
 	n[startx][starty][startz].setd(2);
 }
 
+void clearAllButID(node n[XSIZE][YSIZE][ZSIZE]) {
+	for (int i = 0; i < ZSIZE; i++) {
+		for (int j = 0; j < YSIZE; j++) {
+			for (int k = 0; k < XSIZE; k++) {
+				n[k][j][i].setx(0);
+				n[k][j][i].sety(0);
+				n[k][j][i].setz(0);
+				n[k][j][i].setg(0);
+				n[k][j][i].seth(0);
+				n[k][j][i].setxp(0);
+				n[k][j][i].setyp(0);
+				n[k][j][i].setzp(0);
+				n[k][j][i].setd(0);
+				n[k][j][i].setstatus(0);
+			}
+		}
+	}
+}
+
 void generateRandomMaze(node n[XSIZE][YSIZE][ZSIZE]) {
 	int percent = 30;
 
-	srand((unsigned int)time(NULL));
+	unsigned int seed = (unsigned int)time(NULL);//1460760833;
+	srand(seed);
+	//cout << seed << endl;
+	//srand((unsigned int)time(NULL));
 
 	for (int i = 0; i < ZSIZE; i++) {
 		for (int j = 0; j < YSIZE; j++) {
@@ -145,13 +168,21 @@ void printValues(node n[XSIZE][YSIZE][ZSIZE]) {
 		}
 }
 
-void printMap(node n[XSIZE][YSIZE][ZSIZE], int curx = -1, int cury = -1, int curz = -1) {
+void printMap(node n[XSIZE][YSIZE][ZSIZE], int curx = -1, int cury = -1, int curz = -1, int curd = -1) {
+	int dir;
+
 	for (int i = YSIZE - 1; i >= 0; i--) {
 		for (int j = 0; j < ZSIZE; j++) {
 			cout << "\t";
 			for (int k = 0; k < XSIZE; k++) {
 				if (k == curx && i == cury && j == curz) {
-					switch (n[k][i][j].getd()) {
+					if (curd == -1) {
+						dir = n[k][i][j].getd();
+					}
+					else {
+						dir = (curd + 2)%4;
+					}
+					switch (dir) {
 						case 2:
 							cout << "^";
 							break;
@@ -211,14 +242,27 @@ void lowestF(node n[XSIZE][YSIZE][ZSIZE], int &x, int &y, int &z) {
 	}
 }
 
-void aStarPath(node n[XSIZE][YSIZE][ZSIZE], int path[XSIZE*YSIZE*ZSIZE], int &pathlength, int x0, int y0, int z0, int x1, int y1, int z1) {
+void aStarPath(node n[XSIZE][YSIZE][ZSIZE], int path[XSIZE*YSIZE*ZSIZE], int &pathlength, int x0, int y0, int z0, int d0, int x1, int y1, int z1) {
 	int curx = x0, cury = y0, curz = z0;
 	int oldg;
+
+	for (int i = 0; i < ZSIZE; i++) {
+		for (int j = 0; j < YSIZE; j++) {
+			for (int k = 0; k < XSIZE; k++) {
+				n[k][j][i].setg(0);
+				n[k][j][i].seth(0);
+				n[k][j][i].setstatus(0);
+			}
+		}
+	}
+
+	n[x0][y0][z0].setd((d0 + 2)%4);
 
 	//printMap(n, -1, -1, -1);
 
 	n[curx][cury][curz].setstatus(1);	// open starting node
 	lowestF(n, curx, cury, curz);	// set the current x, y coords to the node with the lowest F score
+	//n[curx][cury][curz].setstatus(2);	// close starting node to prevent any parent change
 
 	while (n[x1][y1][z1].getstatus() != 2 && curx >= 0 && cury >= 0 && curz >= 0) {	// while final node is not closed and open list is not empty
 
@@ -451,11 +495,88 @@ bool sense(node t[XSIZE][YSIZE][ZSIZE], node m[XSIZE][YSIZE][ZSIZE], int curx, i
 		}
 	}
 
+	//printMap(t, curx, cury, curz, curd);
+
 	return changed;
 }
 
 bool faceD(int &curd, int nexd) {
-	curd = nexd;
+	switch (nexd) {
+		case 0:
+		case 1:
+		case 2:
+		case 3:
+			curd = nexd;
+	}
+}
+
+bool moveSenseD(node t[XSIZE][YSIZE][ZSIZE], node m[XSIZE][YSIZE][ZSIZE], int &curx, int &cury, int &curz, int &curd, int nexd) {
+	faceD(curd, nexd);
+	bool changed = sense(t, m, curx, cury, curz, curd);
+	if (changed) { return true; }
+
+	// if no change, move in next movement direction
+	if (nexd == 0 && cury + 1 < YSIZE) {
+		if (t[curx][cury + 1][curz].getid() == 0) {
+			cury++;
+		}
+	}
+	if (nexd == 1 && curx + 1 < XSIZE) {
+		if (t[curx + 1][cury][curz].getid() == 0) {
+			curx++;
+		}
+	}
+	if (nexd == 2 && cury > 0) {
+		if (t[curx][cury - 1][curz].getid() == 0) {
+			cury--;
+		}
+	}
+	if (nexd == 3 && curx > 0) {
+		if (t[curx - 1][cury][curz].getid() == 0) {
+			curx--;
+		}
+	}
+	if (nexd == 4 && curz + 1 < ZSIZE) {
+		if (t[curx][cury][curz + 1].getid() == 0) {
+			curz++;
+		}
+	}
+	if (nexd == 5 && curz > 0) {
+		if (t[curx][cury][curz - 1].getid() == 0) {
+			curz--;
+		}
+	}
+	return false;
+}
+
+void autopilot(node t[XSIZE][YSIZE][ZSIZE], node m[XSIZE][YSIZE][ZSIZE], int x0, int y0, int z0, int d0, int x1, int y1, int z1) {
+	int curx = x0, cury = y0, curz = z0, curd = d0;
+	int pathcount = 0;
+	int path[XSIZE*YSIZE*ZSIZE], pathlength;
+	bool changed = false;
+
+	aStarPath(t, path, pathlength, x0, y0, z0, d0, x1, y1, z1);
+	//printMap(t, curx, cury, curz, curd);
+	while (pathlength != pathcount) {
+        //move and/or turn
+		changed = moveSenseD(t, m, curx, cury, curz, curd, path[pathcount]);
+		//printMap(t, curx, cury, curz, curd);
+
+        //sense
+        if (!changed) {
+			pathcount++;
+			changed = sense(t, m, curx, cury, curz, curd);
+        }
+
+        //if map changed, reevaluate path
+        if (changed) {
+			aStarPath(t, path, pathlength, curx, cury, curz, curd, stopx, stopy, stopz);
+			pathcount = 0;
+			changed = false;
+			//printMap(t, curx, cury, curz, curd);
+			//cout << "New path..." << endl;
+        }
+	}
 }
 
 int main() {
@@ -465,21 +586,14 @@ int main() {
 	initializeNodeCoords(m);
 	t[startx][starty][startz].setd((startd + 2)%4);	// set starting direction
 
-	int path[XSIZE*YSIZE*ZSIZE], pathlength;
+	int path[XSIZE*YSIZE*ZSIZE], pathlength, lastpath[XSIZE*YSIZE*ZSIZE], lastpathlength;
 	bool solvable = false;
 	while (!solvable) {
 		generateRandomMaze(m);
-		aStarPath(m, path, pathlength, startx, starty, startz, stopx, stopy, stopz);
+		aStarPath(m, path, pathlength, startx, starty, startz, startd, stopx, stopy, stopz);
 		if (m[stopx][stopy][stopz].getg()) { solvable = true; }
 	}
 	printMap(m);
-
-	int curx = startx, cury = starty, curz = startz, curd = startd;
-
-	/*aStarPath(t, path, pathlength, startx, starty, startz, stopx, stopy, stopz);
-	while (pathlength != 0) {
-
-	}*/
 
 	for (int i = 0; i < pathlength; i++) {
 		cout << path[i] << ", ";
@@ -488,7 +602,37 @@ int main() {
 
 	cout << "Cost: " << m[stopx][stopy][stopz].getg() << endl;
 
-	cout << sense(t, m, startx, starty, startz, startd) << endl;
+	bool same = false;
+	int solvecount = -1;
+
+	while (!same) {
+		autopilot(t, m, startx, starty, startz, startd, stopx, stopy, stopz);
+		printMap(t);
+
+		aStarPath(t, path, pathlength, startx, starty, startz, startd, stopx, stopy, stopz);
+
+		same = true;
+		for (int i = 0; i < XSIZE*YSIZE*ZSIZE; i++) {
+			if (path[i] != lastpath[i]) {
+				same = false;
+				for (int j = 0; j < XSIZE*YSIZE*ZSIZE; j++) { lastpath[j] = path[j]; }
+				break;
+			}
+		}
+		solvecount++;
+	}
+	//printMap(t);
+	cout << solvecount << endl;
+
+	aStarPath(t, path, pathlength, startx, starty, startz, startd, stopx, stopy, stopz);
+	for (int i = 0; i < pathlength; i++) {
+		cout << path[i] << ", ";
+	}
+	cout << endl;
+
+	cout << "Cost: " << t[stopx][stopy][stopz].getg() << endl;
+
+	//printValues(t);
 
 	return 0;
 }
