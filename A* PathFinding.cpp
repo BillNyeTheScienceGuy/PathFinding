@@ -3,6 +3,9 @@
 #include <stdlib.h>
 #include <time.h>
 
+//#include <boost/archive/text_oarchive.hpp>	// to be used for node class serialization
+//#include <boost/archive/text_iarchive.hpp>	// tutorial: <http://www.boost.org/doc/libs/1_36_0/libs/serialization/doc/index.html>
+
 using namespace std;
 
 #define XSIZE 5	// upper limit: 159; lower limit: 2
@@ -21,6 +24,7 @@ class node {			// block map node (meant to be created as an array)
 	int g, h;			// g & h costs
 	int xp, yp, zp, d;	// parent coordinates and direction of parent from current node
 	int status;			// unvisited/open/closed status (0/1/2 respectively)
+	bool changed;		// specifies if the node id has been changed
 	public:
 		node() {
 			id = 0;
@@ -34,6 +38,7 @@ class node {			// block map node (meant to be created as an array)
 			zp = 0;
 			d = 0;
 			status = 0;
+			changed = false;
 		}
 		node(int xi, int yi, int zi) {
 			x = xi;
@@ -54,7 +59,11 @@ class node {			// block map node (meant to be created as an array)
 		int getzp() { return zp; }
 		int getd() { return d; }
 		int getstatus() { return status; }
-		void setid(int i) { id = i; }
+		bool idchanged() { return changed; }
+		void setid(int i) {
+			changed = (id != i) ? true : false;
+			id = i;
+		}
 		void setx(int xi) { x = xi; }
 		void sety(int yi) { y = yi; }
 		void setz(int zi) { z = zi; }
@@ -77,6 +86,7 @@ class node {			// block map node (meant to be created as an array)
 			}
 		}
 		void setstatus(int s) { status = s; }
+		void setchanged(bool c) { changed = c; }
 		void calcg(node parent) {
 			g = parent.getg();	// previous movement cost
 			int dir = ((parent.getx() - x) > 0) + 2*((parent.gety() - y) < 0) + 3*((parent.getx() - x) < 0);	// direction to the parent currently being calculated
@@ -457,42 +467,30 @@ bool sense(node t[XSIZE][YSIZE][ZSIZE], node m[XSIZE][YSIZE][ZSIZE], int curx, i
 
 	// get id of block in front of turtle
 	if (curd == 0 && cury + 1 < YSIZE) {
-		if (t[curx][cury + 1][curz].getid() != m[curx][cury + 1][curz].getid()) {
-			t[curx][cury + 1][curz].setid(m[curx][cury + 1][curz].getid());
-			changed = true;
-		}
+		t[curx][cury + 1][curz].setid(m[curx][cury + 1][curz].getid());
+		if (t[curx][cury + 1][curz].idchanged()) { changed = true; }
 	}
 	if (curd == 1 && curx + 1 < XSIZE) {
-		if (t[curx + 1][cury][curz].getid() != m[curx + 1][cury][curz].getid()) {
-			t[curx + 1][cury][curz].setid(m[curx + 1][cury][curz].getid());
-			changed = true;
-		}
+		t[curx + 1][cury][curz].setid(m[curx + 1][cury][curz].getid());
+		if (t[curx + 1][cury][curz].idchanged()) { changed = true; }
 	}
 	if (curd == 2 && cury > 0) {
-		if (t[curx][cury - 1][curz].getid() != m[curx][cury - 1][curz].getid()) {
-			t[curx][cury - 1][curz].setid(m[curx][cury - 1][curz].getid());
-			changed = true;
-		}
+		t[curx][cury - 1][curz].setid(m[curx][cury - 1][curz].getid());
+		if (t[curx][cury - 1][curz].idchanged()) { changed = true; }
 	}
 	if (curd == 3 && curx > 0) {
-		if (t[curx - 1][cury][curz].getid() != m[curx - 1][cury][curz].getid()) {
-			t[curx - 1][cury][curz].setid(m[curx - 1][cury][curz].getid());
-			changed = true;
-		}
+		t[curx - 1][cury][curz].setid(m[curx - 1][cury][curz].getid());
+		if (t[curx - 1][cury][curz].idchanged()) { changed = true; }
 	}
 
 	// get id of blocks above and below turtle
 	if (curz + 1 < ZSIZE) {
-		if (t[curx][cury][curz + 1].getid() != m[curx][cury][curz + 1].getid()) {
-			t[curx][cury][curz + 1].setid(m[curx][cury][curz + 1].getid());
-			changed = true;
-		}
+		t[curx][cury][curz + 1].setid(m[curx][cury][curz + 1].getid());
+		if (t[curx][cury][curz + 1].idchanged()) { changed = true; }
 	}
 	if (curz > 0) {
-		if (t[curx][cury][curz - 1].getid() != m[curx][cury][curz - 1].getid()) {
-			t[curx][cury][curz - 1].setid(m[curx][cury][curz - 1].getid());
-			changed = true;
-		}
+		t[curx][cury][curz - 1].setid(m[curx][cury][curz - 1].getid());
+		if (t[curx][cury][curz - 1].idchanged()) { changed = true; }
 	}
 
 	//printMap(t, curx, cury, curz, curd);
