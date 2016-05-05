@@ -433,19 +433,19 @@ void moveTo(node t[XSIZE][YSIZE][ZSIZE], node m[XSIZE][YSIZE][ZSIZE], coordinate
 		//printMap(t, curx, cury, curz, curd);
 
 		//sense
-        if (!changed) {
+		if (!changed) {
 			pathcount++;
 			changed = sense(t, m, cur);
-        }
+		}
 
 		//if map changed, reevaluate path
-        if (changed) {
+		if (changed) {
 			path = aStarPath(t, cur, stop);
 			pathcount = 0;
 			changed = false;
 			//printMap(t, curx, cury, curz, curd);
 			//cout << "New path..." << endl;
-        }
+		}
 	}
 }
 
