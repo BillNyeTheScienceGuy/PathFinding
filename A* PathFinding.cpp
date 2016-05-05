@@ -2,62 +2,61 @@
 #include <limits>	// to set int to max value
 #include <stdlib.h>
 #include <time.h>
+#include <vector>
 
-//#include <boost/archive/text_oarchive.hpp>	// to be used for node class serialization
-//#include <boost/archive/text_iarchive.hpp>	// tutorial: <http://www.boost.org/doc/libs/1_36_0/libs/serialization/doc/index.html>
+//#include <boost/archive/text_oarchive.hpp> // to be used for node class serialization
+//#include <boost/archive/text_iarchive.hpp> // tutorial: <http://www.boost.org/doc/libs/1_36_0/libs/serialization/doc/index.html>
 
 using namespace std;
 
-#define XSIZE 5	// upper limit: 159; lower limit: 2
-#define YSIZE 5	//
-#define ZSIZE 2	//
+#define XSIZE 5 // upper limit: 159; lower limit: 2
+#define YSIZE 5 //
+#define ZSIZE 2 //
 
-int startx = 0, starty = 0, startz = 0, startd = 0;
-int stopx = XSIZE - 1, stopy = YSIZE - 1, stopz = ZSIZE - 1;
-int hfactor = 1;	// higher the factor, faster the solution but not guaranteed to be the shortest solution
+int hfactor = 1; // higher the factor, faster the solution but not guaranteed to be the shortest solution
 
-static int dircostmap[4][4] = { {1, 2, 3, 2}, {2, 1, 2, 3}, {3, 2, 1, 2}, {2, 3, 2, 1} };	// maps move costs with directions
+static int dircostmap[4][4] = { {1, 2, 3, 2}, {2, 1, 2, 3}, {3, 2, 1, 2}, {2, 3, 2, 1} }; // maps move costs with directions
 
-class node {			// block map node (meant to be created as an array)
-	int id;				// block ID
-	int x, y, z;		// x, y, and z coords of node
-	int g, h;			// g & h costs
-	int xp, yp, zp, d;	// parent coordinates and direction of parent from current node
-	int status;			// unvisited/open/closed status (0/1/2 respectively)
-	bool changed;		// specifies if the node id has been changed
+struct coordinate { // coordinates structure: holds x, y, z coordinates and direction
+	int x, y, z;
+	int d = -1; // -1 by default to show unassigned direction
+};
+
+class node {           // block map node (meant to be created as an array)
+	int id;            // block ID
+	int x, y, z;       // x, y, and z coords of node
+	int g, h;          // g & h costs
+	int xp, yp, zp, d; // parent coordinates and direction of parent from current node
+	int status;        // unvisited/open/closed status (0/1/2 respectively)
+	bool changed;      // specifies if the node id has been changed
 	public:
 		node() {
 			id = 0;
-			x = 0;
-			y = 0;
-			z = 0;
-			g = 0;	// g cost (cost needed to get to current node from start)
-			h = 0;	// h cost (projected cost to get from current node to end)
+			x  = 0;
+			y  = 0;
+			z  = 0;
+			g  = 0; // g cost (cost needed to get to current node from start)
+			h  = 0; // h cost (projected cost to get from current node to end)
 			xp = 0;
 			yp = 0;
 			zp = 0;
-			d = 0;
+			d  = 0;
 			status = 0;
 			changed = false;
 		}
-		node(int xi, int yi, int zi) {
-			x = xi;
-			y = yi;
-			z = zi;
-
-		}
 		int abs(int n) { return (n < 0) ? -1*n : n; }
 		int getid() { return id; }
-		int getx() { return x; }
-		int gety() { return y; }
-		int getz() { return z; }
-		int getf() { return g + h; }
-		int getg() { return g; }
-		int geth() { return h; }
+		int getx()  { return x; }
+		int gety()  { return y; }
+		int getz()  { return z; }
+		int getf()  { return g + h; }
+		int getg()  { return g; }
+		int geth()  { return h; }
 		int getxp() { return xp; }
 		int getyp() { return yp; }
 		int getzp() { return zp; }
-		int getd() { return d; }
+		coordinate getxyzp() { coordinate p; p.x = xp; p.y = yp; p.z = zp; return p; }
+		int getd()  { return d; }
 		int getstatus() { return status; }
 		bool idchanged() { return changed; }
 		void setid(int i) {
@@ -71,6 +70,7 @@ class node {			// block map node (meant to be created as an array)
 		void setg(int gi) { g = gi; }
 		void seth(int hi) { h = hi; }
 		void setxyz(int xi, int yi, int zi) { x = xi; y = yi; z = zi; }
+		void setxyz(coordinate c) { x = c.x; y = c.y; z = c.z; }
 		void setxp(int xi) { xp = xi; }
 		void setyp(int yi) { yp = yi; }
 		void setzp(int zi) { zp = zi; }
@@ -78,8 +78,8 @@ class node {			// block map node (meant to be created as an array)
 			xp = parent.getx();
 			yp = parent.gety();
 			zp = parent.getz();
-			if (z == zp) {	// if z-coord hasn't changed
-				d = ((xp - x) > 0) + 2*((yp - y) < 0) + 3*((xp - x) < 0);	// set direction to point at parent
+			if (z == zp) { // if z-coord hasn't changed
+				d = ((xp - x) > 0) + 2*((yp - y) < 0) + 3*((xp - x) < 0); // set direction to point at parent
 			}
 			else {
 				d = parent.getd();
@@ -87,22 +87,23 @@ class node {			// block map node (meant to be created as an array)
 		}
 		void setstatus(int s) { status = s; }
 		void setchanged(bool c) { changed = c; }
-		void calcg(node parent) {
-			g = parent.getg();	// previous movement cost
-			int dir = ((parent.getx() - x) > 0) + 2*((parent.gety() - y) < 0) + 3*((parent.getx() - x) < 0);	// direction to the parent currently being calculated
-			if (z == parent.getz()) { g += dircostmap[parent.getd()][dir]; /*cout << parent.getd() << " (" << parent.getx() << ", " << parent.gety() << "), " << dir << " (" << x << ", " << y << "): " << parent.getg() << " + " << dircostmap[parent.getd()][dir] << " = " << g << endl;*/ }	// x-y direction cost (uses direction faced in previous node and current direction facing now)
-			else { g += 1; }	// z direction cost
+		void calcg(node parent, int finalD = -1) {
+			g = parent.getg(); // previous movement cost
+			int dir = ((parent.getx() - x) > 0) + 2*((parent.gety() - y) < 0) + 3*((parent.getx() - x) < 0); // direction to the parent currently being calculated
+			if (z == parent.getz()) { g += dircostmap[parent.getd()][dir]; } // x-y direction cost (uses direction faced in previous node and current direction facing now)
+			else { g += 1; } // z direction cost
+			if (finalD >= 0) { g += dircostmap[dir][(finalD + 2)%4] - 1; } // extra movement cost for adjusting direction on final node
 		}
 		void calch(int xf, int yf, int zf) {
 			int dir = 0;
 			if ((d%2 == 0)&&(xf - x != 0) || (d%2 == 1)&&(yf - y != 0)) { dir = 1; }
 			if ((d == 2)&&(yf < y) || (d == 3)&&(xf < x) || (d == 0)&&(yf > y) || (d == 1)&&(xf > x)) { dir = 2; }
-			h = abs(xf - x) + abs(yf - y) + abs(zf - z) + dir;	// cost if all nodes travelled to finish from current node were walkable
+			h = abs(xf - x) + abs(yf - y) + abs(zf - z) + dir; // cost if all nodes travelled to finish from current node were walkable
 			h *= hfactor;
 		}
 };
 
-void initializeNodeCoords(node n[XSIZE][YSIZE][ZSIZE]) {
+void initializeNodeCoordinates(node n[XSIZE][YSIZE][ZSIZE]) {
 	for (int i = 0; i < XSIZE; i++) {
 		for (int j = 0; j < YSIZE; j++) {
 			for (int k = 0; k < ZSIZE; k++) {
@@ -110,63 +111,23 @@ void initializeNodeCoords(node n[XSIZE][YSIZE][ZSIZE]) {
 			}
 		}
 	}
-	n[startx][starty][startz].setd(2);
-}
-
-void clearAllButID(node n[XSIZE][YSIZE][ZSIZE]) {
-	for (int i = 0; i < ZSIZE; i++) {
-		for (int j = 0; j < YSIZE; j++) {
-			for (int k = 0; k < XSIZE; k++) {
-				n[k][j][i].setx(0);
-				n[k][j][i].sety(0);
-				n[k][j][i].setz(0);
-				n[k][j][i].setg(0);
-				n[k][j][i].seth(0);
-				n[k][j][i].setxp(0);
-				n[k][j][i].setyp(0);
-				n[k][j][i].setzp(0);
-				n[k][j][i].setd(0);
-				n[k][j][i].setstatus(0);
-			}
-		}
-	}
-}
-
-void generateRandomMaze(node n[XSIZE][YSIZE][ZSIZE]) {
-	int percent = 30;
-
-	unsigned int seed = (unsigned int)time(NULL);//1460760833;
-	srand(seed);
-	//cout << seed << endl;
-	//srand((unsigned int)time(NULL));
-
-	for (int i = 0; i < ZSIZE; i++) {
-		for (int j = 0; j < YSIZE; j++) {
-			for (int k = 0; k < XSIZE; k++) {
-				n[k][j][i].setid((int)(rand()%100 < percent));
-			}
-		}
-	}
-
-	n[startx][starty][startz].setid(0);
-	n[stopx][stopy][stopz].setid(0);
 }
 
 void printValues(node n[XSIZE][YSIZE][ZSIZE]) {
 	for (int i = 0; i < ZSIZE; i++) {
 		cout << endl << " y" << endl << " ^" << endl;
-		for (int j = YSIZE - 1; j >= 0; j--) {	// y-coords
+		for (int j = YSIZE - 1; j >= 0; j--) { // y-coords
 			cout << " |\t";
-			for (int k = 0; k < XSIZE; k++) {	// x-coords
-				cout << n[k][j][i].getx() << "," << n[k][j][i].gety() << "," << n[k][j][i].getid() << "\t";		// node coords
+			for (int k = 0; k < XSIZE; k++) { // x-coords
+				cout << n[k][j][i].getx() << "," << n[k][j][i].gety() << "," << n[k][j][i].getid() << "\t"; // node coords
 			}
 			cout << endl << " |\t";
 			for (int k = 0; k < XSIZE; k++) {
-				cout << n[k][j][i].getxp() << "," << n[k][j][i].getyp() << "," << n[k][j][i].getd() << "\t";	// parent coords
+				cout << n[k][j][i].getxp() << "," << n[k][j][i].getyp() << "," << n[k][j][i].getd() << "\t"; // parent coords
 			}
 			cout << endl << " |\t";
 			for (int k = 0; k < XSIZE; k++) {
-				cout << n[k][j][i].getg() << "," << n[k][j][i].geth() << "," << n[k][j][i].getstatus() << "\t";	// g and h values
+				cout << n[k][j][i].getg() << "," << n[k][j][i].geth() << "," << n[k][j][i].getstatus() << "\t"; // g and h values
 			}
 			cout << endl << " |" << endl;
 		}
@@ -225,23 +186,35 @@ void printMap(node n[XSIZE][YSIZE][ZSIZE], int curx = -1, int cury = -1, int cur
 	cout << endl;
 }
 
-void setWalls(node n[XSIZE][YSIZE][ZSIZE]) {
-	n[XSIZE - 2][YSIZE - 1][0].setid(1);
-	n[XSIZE - 2][YSIZE - 2][0].setid(1);
-	n[XSIZE - 2][0][0].setid(1);
-	//n[0][1][0].setid(1);
+void printPath(vector<int> path) {
+	for (int i = 0; i < path.size(); i++) {
+		cout << path[i] << " ";
+	}
+	cout << endl;
+}
+
+void generateRandomMaze(node n[XSIZE][YSIZE][ZSIZE]) {
+	int percent = 30;
+
+	for (int i = 0; i < ZSIZE; i++) {
+		for (int j = 0; j < YSIZE; j++) {
+			for (int k = 0; k < XSIZE; k++) {
+				n[k][j][i].setid((int)(rand()%100 < percent));
+			}
+		}
+	}
 }
 
 void lowestF(node n[XSIZE][YSIZE][ZSIZE], int &x, int &y, int &z) {
 	int lowf = numeric_limits<int>::max();
-	x = -1;	// x and y negatives if failed to find anything in open list
+	x = -1; // x and y negatives if failed to find anything in open list
 	y = -1;
 	z = -1;
 
 	for (int i = 0; i < ZSIZE; i++) {
 		for (int j = 0; j < YSIZE; j++) {
 			for (int k = 0; k < XSIZE; k++) {
-				if (n[k][j][i].getid() == 0 && n[k][j][i].getstatus() == 1 && n[k][j][i].getf() < lowf) {	// if walkable and on open list and lower than lowest F encountered
+				if (n[k][j][i].getid() == 0 && n[k][j][i].getstatus() == 1 && n[k][j][i].getf() < lowf) { // if walkable and on open list and lower than lowest F encountered
 					lowf = n[k][j][i].getf();
 					x = k;
 					y = j;
@@ -252,245 +225,35 @@ void lowestF(node n[XSIZE][YSIZE][ZSIZE], int &x, int &y, int &z) {
 	}
 }
 
-void aStarPath(node n[XSIZE][YSIZE][ZSIZE], int path[XSIZE*YSIZE*ZSIZE], int &pathlength, int x0, int y0, int z0, int d0, int x1, int y1, int z1) {
-	int curx = x0, cury = y0, curz = z0;
-	int oldg;
-
-	for (int i = 0; i < ZSIZE; i++) {
-		for (int j = 0; j < YSIZE; j++) {
-			for (int k = 0; k < XSIZE; k++) {
-				n[k][j][i].setg(0);
-				n[k][j][i].seth(0);
-				n[k][j][i].setstatus(0);
-			}
-		}
-	}
-
-	n[x0][y0][z0].setd((d0 + 2)%4);
-
-	//printMap(n, -1, -1, -1);
-
-	n[curx][cury][curz].setstatus(1);	// open starting node
-	lowestF(n, curx, cury, curz);	// set the current x, y coords to the node with the lowest F score
-	//n[curx][cury][curz].setstatus(2);	// close starting node to prevent any parent change
-
-	while (n[x1][y1][z1].getstatus() != 2 && curx >= 0 && cury >= 0 && curz >= 0) {	// while final node is not closed and open list is not empty
-
-		//printMap(n, curx, cury, curz);
-
-		if (curx + 1 < XSIZE) {														// if there's a node in the positive x direction
-			if (n[curx + 1][cury][curz].getid() == 0) {								// if the node is walkable
-				switch (n[curx + 1][cury][curz].getstatus()) {
-					case 1:															// if the node is in the open list
-						oldg = n[curx + 1][cury][curz].getg();						// save the old G score for comparison
-						n[curx + 1][cury][curz].calcg(n[curx][cury][curz]);			// recalculate a new G score
-						if (n[curx + 1][cury][curz].getg() >= oldg) {				// if the new G score is not less than the old
-							n[curx + 1][cury][curz].setg(oldg);						// set the score back to the old
-						}
-						else {
-							n[curx + 1][cury][curz].setxyzp(n[curx][cury][curz]);	// else set the node's parent to current node
-							n[curx + 1][cury][curz].calch(x1, y1, z1);				// recalculate the H score
-						}
-						break;
-					case 0:															// if the node is not in a list
-						n[curx + 1][cury][curz].setstatus(1);						// place in open list
-						n[curx + 1][cury][curz].setxyzp(n[curx][cury][curz]);		// set the node's parent to current node
-						n[curx + 1][cury][curz].calcg(n[curx][cury][curz]);			// calculate the G score
-						n[curx + 1][cury][curz].calch(x1, y1, z1);					// calculate the H score
-						break;
-				}
-			}
-		}
-		if (curx > 0) {																// if there's a node in the negative x direction
-			if (n[curx - 1][cury][curz].getid() == 0) {								// if the node is walkable
-				switch (n[curx - 1][cury][curz].getstatus()) {
-					case 1:															// if the node is in the open list
-						oldg = n[curx - 1][cury][curz].getg();						// save the old G score for comparison
-						n[curx - 1][cury][curz].calcg(n[curx][cury][curz]);			// recalculate a new G score
-						if (n[curx - 1][cury][curz].getg() >= oldg) {				// if the new G score is not less than the old
-							n[curx - 1][cury][curz].setg(oldg);						// set the score back to the old
-						}
-						else {
-							n[curx - 1][cury][curz].setxyzp(n[curx][cury][curz]);	// else set the node's parent to current node
-							n[curx - 1][cury][curz].calch(x1, y1, z1);				// recalculate the H score
-						}
-						break;
-					case 0:															// if the node is not in a list
-						n[curx - 1][cury][curz].setstatus(1);						// place in open list
-						n[curx - 1][cury][curz].setxyzp(n[curx][cury][curz]);		// set the node's parent to current node
-						n[curx - 1][cury][curz].calcg(n[curx][cury][curz]);			// calculate the G score
-						n[curx - 1][cury][curz].calch(x1, y1, z1);					// calculate the H score
-						break;
-				}
-			}
-		}
-		if (cury + 1 < YSIZE) {														// if there's a node in the positive y direction
-			if (n[curx][cury + 1][curz].getid() == 0) {								// if the node is walkable
-				switch (n[curx][cury + 1][curz].getstatus()) {
-					case 1:															// if the node is in the open list
-						oldg = n[curx][cury + 1][curz].getg();						// save the old G score for comparison
-						n[curx][cury + 1][curz].calcg(n[curx][cury][curz]);			// recalculate a new G score
-						if (n[curx][cury + 1][curz].getg() >= oldg) {				// if the new G score is not less than the old
-							n[curx][cury + 1][curz].setg(oldg);						// set the score back to the old
-						}
-						else {
-							n[curx][cury + 1][curz].setxyzp(n[curx][cury][curz]);	// else set the node's parent to current node
-							n[curx][cury + 1][curz].calch(x1, y1, z1);				// recalculate the H score
-						}
-						break;
-					case 0:															// if the node is not in a list
-						n[curx][cury + 1][curz].setstatus(1);						// place in open list
-						n[curx][cury + 1][curz].setxyzp(n[curx][cury][curz]);		// set the node's parent to current node
-						n[curx][cury + 1][curz].calcg(n[curx][cury][curz]);			// calculate the G score
-						n[curx][cury + 1][curz].calch(x1, y1, z1);					// calculate the H score
-						break;
-				}
-			}
-		}
-		if (cury > 0) {																// if there's a node in the negative y direction
-			if (n[curx][cury - 1][curz].getid() == 0) {								// if the node is walkable
-				switch (n[curx][cury - 1][curz].getstatus()) {
-					case 1:															// if the node is in the open list
-						oldg = n[curx][cury - 1][curz].getg();						// save the old G score for comparison
-						n[curx][cury - 1][curz].calcg(n[curx][cury][curz]);			// recalculate a new G score
-						if (n[curx][cury - 1][curz].getg() >= oldg) {				// if the new G score is not less than the old
-							n[curx][cury - 1][curz].setg(oldg);						// set the score back to the old
-						}
-						else {
-							n[curx][cury - 1][curz].setxyzp(n[curx][cury][curz]);	// else set the node's parent to current node
-							n[curx][cury - 1][curz].calch(x1, y1, z1);				// recalculate the H score
-						}
-						break;
-					case 0:															// if the node is not in a list
-						n[curx][cury - 1][curz].setstatus(1);						// place in open list
-						n[curx][cury - 1][curz].setxyzp(n[curx][cury][curz]);		// set the node's parent to current node
-						n[curx][cury - 1][curz].calcg(n[curx][cury][curz]);			// calculate the G score
-						n[curx][cury - 1][curz].calch(x1, y1, z1);					// calculate the H score
-						break;
-				}
-			}
-		}
-		if (curz + 1 < ZSIZE) {														// if there's a node in the positive z direction
-			if (n[curx][cury][curz + 1].getid() == 0) {								// if the node is walkable
-				switch (n[curx][cury][curz + 1].getstatus()) {
-					case 1:															// if the node is in the open list
-						oldg = n[curx][cury][curz + 1].getg();						// save the old G score for comparison
-						n[curx][cury][curz + 1].calcg(n[curx][cury][curz]);			// recalculate a new G score
-						if (n[curx][cury][curz + 1].getg() >= oldg) {				// if the new G score is not less than the old
-							n[curx][cury][curz + 1].setg(oldg);						// set the score back to the old
-						}
-						else {
-							n[curx][cury][curz + 1].setxyzp(n[curx][cury][curz]);	// else set the node's parent to current node
-							n[curx][cury][curz + 1].calch(x1, y1, z1);				// recalculate the H score
-						}
-						break;
-					case 0:															// if the node is not in a list
-						n[curx][cury][curz + 1].setstatus(1);						// place in open list
-						n[curx][cury][curz + 1].setxyzp(n[curx][cury][curz]);		// set the node's parent to current node
-						n[curx][cury][curz + 1].calcg(n[curx][cury][curz]);			// calculate the G score
-						n[curx][cury][curz + 1].calch(x1, y1, z1);					// calculate the H score
-					break;
-				}
-			}
-		}
-		if (curz > 0) {																// if there's a node in the negative z direction
-			if (n[curx][cury][curz - 1].getid() == 0) {								// if the node is walkable
-				switch (n[curx][cury][curz - 1].getstatus()) {
-					case 1:															// if the node is in the open list
-						oldg = n[curx][cury][curz - 1].getg();						// save the old G score for comparison
-						n[curx][cury][curz - 1].calcg(n[curx][cury][curz]);			// recalculate a new G score
-						if (n[curx][cury][curz - 1].getg() >= oldg) {				// if the new G score is not less than the old
-							n[curx][cury][curz - 1].setg(oldg);						// set the score back to the old
-						}
-						else {
-							n[curx][cury][curz - 1].setxyzp(n[curx][cury][curz]);	// else set the node's parent to current node
-							n[curx][cury][curz - 1].calch(x1, y1, z1);				// recalculate the H score
-						}
-						break;
-					case 0:															// if the node is not in a list
-						n[curx][cury][curz - 1].setstatus(1);						// place in open list
-						n[curx][cury][curz - 1].setxyzp(n[curx][cury][curz]);		// set the node's parent to current node
-						n[curx][cury][curz - 1].calcg(n[curx][cury][curz]);			// calculate the G score
-						n[curx][cury][curz - 1].calch(x1, y1, z1);					// calculate the H score
-						break;
-				}
-			}
-		}
-
-		n[curx][cury][curz].setstatus(2);	// close current node
-		lowestF(n, curx, cury, curz);	// set the current x, y coords to the node with the lowest F score
-	}
-
-	if (n[x1][y1][z1].getg() == 0) { return; }	// if no cost required to get to end, this means either start and/or finish are unwalkable or start = finish
-
-	pathlength = 0;
-	int nextx, nexty, nextz;	// middle-men integers to prevent curx and cury from changing before done calling functions
-	int zdiff;	// difference between node z and parent z
-	curx = x1;
-	cury = y1;
-	curz = z1;
-
-	while (curx != x0 || cury != y0 || curz != z0) {	// while not at starting node
-		zdiff = n[curx][cury][curz].getz() - n[curx][cury][curz].getzp();	// -1 if parent above, 0 if no change, 1 if parent below
-		switch (zdiff) {
-			case 1:														// if parent below
-				path[pathlength] = 4;									// set movement direction needed to get to current node to go up
-				break;
-			case -1:													// if parent above
-				path[pathlength] = 5;									// set movement direction needed to get to current node to go down
-				break;
-			default:													// if on same z-coord as parent
-				path[pathlength] = (n[curx][cury][curz].getd() + 2)%4;	// set movement needed to get to current node from parent (reverse of direction to parent)
-		}
-		pathlength++;	// iterate path length
-		nextx = n[curx][cury][curz].getxp();	// go to parent cell next
-		nexty = n[curx][cury][curz].getyp();
-		nextz = n[curx][cury][curz].getzp();
-		curx = nextx;
-		cury = nexty;
-		curz = nextz;
-	}
-
-	int temp, last = pathlength - 1;
-
-	for (int i = 0; i < pathlength/2; i++) {	// reverse path array so resulting array is sequential instructions on which direction to go
-		temp = path[i];
-		path[i] = path[last];
-		path[last] = temp;
-
-		last--;
-	}
-}
-
-bool sense(node t[XSIZE][YSIZE][ZSIZE], node m[XSIZE][YSIZE][ZSIZE], int curx, int cury, int curz, int curd) {
+bool sense(node t[XSIZE][YSIZE][ZSIZE], node m[XSIZE][YSIZE][ZSIZE], coordinate cur) {
 	bool changed = false;
 
 	// get id of block in front of turtle
-	if (curd == 0 && cury + 1 < YSIZE) {
-		t[curx][cury + 1][curz].setid(m[curx][cury + 1][curz].getid());
-		if (t[curx][cury + 1][curz].idchanged()) { changed = true; }
+	if (cur.d == 0 && cur.y + 1 < YSIZE) {
+		t[cur.x][cur.y + 1][cur.z].setid(m[cur.x][cur.y + 1][cur.z].getid());
+		if (t[cur.x][cur.y + 1][cur.z].idchanged()) { changed = true; }
 	}
-	if (curd == 1 && curx + 1 < XSIZE) {
-		t[curx + 1][cury][curz].setid(m[curx + 1][cury][curz].getid());
-		if (t[curx + 1][cury][curz].idchanged()) { changed = true; }
+	if (cur.d == 1 && cur.x + 1 < XSIZE) {
+		t[cur.x + 1][cur.y][cur.z].setid(m[cur.x + 1][cur.y][cur.z].getid());
+		if (t[cur.x + 1][cur.y][cur.z].idchanged()) { changed = true; }
 	}
-	if (curd == 2 && cury > 0) {
-		t[curx][cury - 1][curz].setid(m[curx][cury - 1][curz].getid());
-		if (t[curx][cury - 1][curz].idchanged()) { changed = true; }
+	if (cur.d == 2 && cur.y > 0) {
+		t[cur.x][cur.y - 1][cur.z].setid(m[cur.x][cur.y - 1][cur.z].getid());
+		if (t[cur.x][cur.y - 1][cur.z].idchanged()) { changed = true; }
 	}
-	if (curd == 3 && curx > 0) {
-		t[curx - 1][cury][curz].setid(m[curx - 1][cury][curz].getid());
-		if (t[curx - 1][cury][curz].idchanged()) { changed = true; }
+	if (cur.d == 3 && cur.x > 0) {
+		t[cur.x - 1][cur.y][cur.z].setid(m[cur.x - 1][cur.y][cur.z].getid());
+		if (t[cur.x - 1][cur.y][cur.z].idchanged()) { changed = true; }
 	}
 
 	// get id of blocks above and below turtle
-	if (curz + 1 < ZSIZE) {
-		t[curx][cury][curz + 1].setid(m[curx][cury][curz + 1].getid());
-		if (t[curx][cury][curz + 1].idchanged()) { changed = true; }
+	if (cur.z + 1 < ZSIZE) {
+		t[cur.x][cur.y][cur.z + 1].setid(m[cur.x][cur.y][cur.z + 1].getid());
+		if (t[cur.x][cur.y][cur.z + 1].idchanged()) { changed = true; }
 	}
-	if (curz > 0) {
-		t[curx][cury][curz - 1].setid(m[curx][cury][curz - 1].getid());
-		if (t[curx][cury][curz - 1].idchanged()) { changed = true; }
+	if (cur.z > 0) {
+		t[cur.x][cur.y][cur.z - 1].setid(m[cur.x][cur.y][cur.z - 1].getid());
+		if (t[cur.x][cur.y][cur.z - 1].idchanged()) { changed = true; }
 	}
 
 	//printMap(t, curx, cury, curz, curd);
@@ -508,67 +271,176 @@ bool faceD(int &curd, int nexd) {
 	}
 }
 
-bool moveSenseD(node t[XSIZE][YSIZE][ZSIZE], node m[XSIZE][YSIZE][ZSIZE], int &curx, int &cury, int &curz, int &curd, int nexd) {
-	faceD(curd, nexd);
-	bool changed = sense(t, m, curx, cury, curz, curd);
+bool moveSenseD(node t[XSIZE][YSIZE][ZSIZE], node m[XSIZE][YSIZE][ZSIZE], coordinate &cur, int nexd) {
+	faceD(cur.d, nexd);
+	bool changed = sense(t, m, cur);
 	if (changed) { return true; }
 
 	// if no change, move in next movement direction
-	if (nexd == 0 && cury + 1 < YSIZE) {
-		if (t[curx][cury + 1][curz].getid() == 0) {
-			cury++;
+	if (nexd == 0 && cur.y + 1 < YSIZE) {
+		if (t[cur.x][cur.y + 1][cur.z].getid() == 0) {
+			cur.y++;
 		}
 	}
-	if (nexd == 1 && curx + 1 < XSIZE) {
-		if (t[curx + 1][cury][curz].getid() == 0) {
-			curx++;
+	if (nexd == 1 && cur.x + 1 < XSIZE) {
+		if (t[cur.x + 1][cur.y][cur.z].getid() == 0) {
+			cur.x++;
 		}
 	}
-	if (nexd == 2 && cury > 0) {
-		if (t[curx][cury - 1][curz].getid() == 0) {
-			cury--;
+	if (nexd == 2 && cur.y > 0) {
+		if (t[cur.x][cur.y - 1][cur.z].getid() == 0) {
+			cur.y--;
 		}
 	}
-	if (nexd == 3 && curx > 0) {
-		if (t[curx - 1][cury][curz].getid() == 0) {
-			curx--;
+	if (nexd == 3 && cur.x > 0) {
+		if (t[cur.x - 1][cur.y][cur.z].getid() == 0) {
+			cur.x--;
 		}
 	}
-	if (nexd == 4 && curz + 1 < ZSIZE) {
-		if (t[curx][cury][curz + 1].getid() == 0) {
-			curz++;
+	if (nexd == 4 && cur.z + 1 < ZSIZE) {
+		if (t[cur.x][cur.y][cur.z + 1].getid() == 0) {
+			cur.z++;
 		}
 	}
-	if (nexd == 5 && curz > 0) {
-		if (t[curx][cury][curz - 1].getid() == 0) {
-			curz--;
+	if (nexd == 5 && cur.z > 0) {
+		if (t[cur.x][cur.y][cur.z - 1].getid() == 0) {
+			cur.z--;
 		}
 	}
 	return false;
 }
 
-void autopilot(node t[XSIZE][YSIZE][ZSIZE], node m[XSIZE][YSIZE][ZSIZE], int x0, int y0, int z0, int d0, int x1, int y1, int z1) {
-	int curx = x0, cury = y0, curz = z0, curd = d0;
+void resetScoresAndStatus(node n[XSIZE][YSIZE][ZSIZE]) {
+	for (int i = 0; i < ZSIZE; i++) {
+		for (int j = 0; j < YSIZE; j++) {
+			for (int k = 0; k < XSIZE; k++) {
+				n[k][j][i].setg(0);
+				n[k][j][i].seth(0);
+				n[k][j][i].setstatus(0);
+			}
+		}
+	}
+}
+
+void setAdjacentNodeScores(node n[XSIZE][YSIZE][ZSIZE], int x0, int y0, int z0, int x1, int y1, int z1, coordinate stop, bool boundaryCondition) {
+	int oldg;
+	bool nodeIsFinalNode = (x1 == stop.x) && (y1 == stop.y) && (z1 == stop.z);
+
+	if (boundaryCondition) {                                                           // if there's a node in the boundary
+		if (n[x1][y1][z1].getid() == 0) {                                              // if the node is walkable
+			switch (n[x1][y1][z1].getstatus()) {
+				case 1:                                                                // if the node is in the open list
+					oldg = n[x1][y1][z1].getg();                                       // save the old G score for comparison
+					n[x1][y1][z1].calcg(n[x0][y0][z0], nodeIsFinalNode ? stop.d : -1); // recalculate a new G score (accounting for final direction if adjacent node is the end)
+					if (n[x1][y1][z1].getg() >= oldg) {                                // if the new G score is not less than the old
+						n[x1][y1][z1].setg(oldg);                                      // set the score back to the old
+					}
+					else {
+						n[x1][y1][z1].setxyzp(n[x0][y0][z0]);                          // else set the node's parent to current node
+						n[x1][y1][z1].calch(stop.x, stop.y, stop.z);                   // recalculate the H score
+					}
+					break;
+				case 0:                                                                // if the node is not in a list
+					n[x1][y1][z1].setstatus(1);                                        // place in open list
+					n[x1][y1][z1].setxyzp(n[x0][y0][z0]);                              // set the node's parent to current node
+					n[x1][y1][z1].calcg(n[x0][y0][z0], nodeIsFinalNode ? stop.d : -1); // calculate the G score
+
+					n[x1][y1][z1].calch(stop.x, stop.y, stop.z);                       // calculate the H score
+					break;
+			}
+		}
+	}
+}
+
+vector<int> aStarPath(node n[XSIZE][YSIZE][ZSIZE], coordinate start, coordinate stop) {
+	coordinate cur = start;
+	int oldg;
+
+	resetScoresAndStatus(n);
+
+	n[start.x][start.y][start.z].setd((start.d + 2)%4);
+
+	//printMap(n, -1, -1, -1);
+
+	n[cur.x][cur.y][cur.z].setstatus(1); // open starting node
+	lowestF(n, cur.x, cur.y, cur.z); // set the current x, y coords to the node with the lowest F score
+	//n[curx][cury][curz].setstatus(2); // close starting node to prevent any parent change
+
+	while (n[stop.x][stop.y][stop.z].getstatus() != 2 && cur.x >= 0 && cur.y >= 0 && cur.z >= 0) { // while final node is not closed and open list is not empty
+
+		//printMap(n, curx, cury, curz);
+
+		setAdjacentNodeScores(n, cur.x, cur.y, cur.z, cur.x + 1, cur.y, cur.z, stop, cur.x + 1 < XSIZE);
+		setAdjacentNodeScores(n, cur.x, cur.y, cur.z, cur.x - 1, cur.y, cur.z, stop, cur.x > 0);
+		setAdjacentNodeScores(n, cur.x, cur.y, cur.z, cur.x, cur.y + 1, cur.z, stop, cur.y + 1 < YSIZE);
+		setAdjacentNodeScores(n, cur.x, cur.y, cur.z, cur.x, cur.y - 1, cur.z, stop, cur.y > 0);
+		setAdjacentNodeScores(n, cur.x, cur.y, cur.z, cur.x, cur.y, cur.z + 1, stop, cur.z + 1 < ZSIZE);
+		setAdjacentNodeScores(n, cur.x, cur.y, cur.z, cur.x, cur.y, cur.z - 1, stop, cur.z > 0);
+
+		n[cur.x][cur.y][cur.z].setstatus(2); // close current node
+		lowestF(n, cur.x, cur.y, cur.z); // set the current x, y coords to the node with the lowest F score
+	}
+
+	if (n[stop.x][stop.y][stop.z].getg() == 0) { // if no cost required to get to end, this means either start and/or finish are unwalkable or start = finish
+		vector<int> blank;
+		return blank;
+	}
+
+	vector<int> path;
+	int zdiff; // difference between node z and parent z
+	cur = stop;
+
+	while (cur.x != start.x || cur.y != start.y || cur.z != start.z) { // while not at starting node
+		zdiff = n[cur.x][cur.y][cur.z].getz() - n[cur.x][cur.y][cur.z].getzp(); // -1 if parent above, 0 if no change, 1 if parent below
+		switch (zdiff) {
+			case 1:                                                 // if parent below
+				path.push_back(4);                                  // set movement direction needed to get to current node to go up
+				break;
+			case -1:                                                // if parent above
+				path.push_back(5);                                  // set movement direction needed to get to current node to go down
+				break;
+			default:                                                // if on same z-coord as parent
+				path.push_back((n[cur.x][cur.y][cur.z].getd() + 2)%4); // set movement needed to get to current node from parent (reverse of direction to parent)
+		}
+		cur = n[cur.x][cur.y][cur.z].getxyzp(); // go to parent cell next
+	}
+
+	int temp, last = path.size() - 1;
+
+	for (int i = 0; i < path.size()/2; i++) { // reverse path array so resulting array is sequential instructions on which direction to go
+		temp = path[i];
+		path[i] = path[last];
+		path[last] = temp;
+
+		last--;
+	}
+
+	return path;
+}
+
+void moveTo(node t[XSIZE][YSIZE][ZSIZE], node m[XSIZE][YSIZE][ZSIZE], coordinate start, coordinate stop) {
+	coordinate cur = start;
 	int pathcount = 0;
-	int path[XSIZE*YSIZE*ZSIZE], pathlength;
+	vector<int> path;
+	int pathlength;
 	bool changed = false;
 
-	aStarPath(t, path, pathlength, x0, y0, z0, d0, x1, y1, z1);
+	path = aStarPath(t, start, stop);
 	//printMap(t, curx, cury, curz, curd);
-	while (pathlength != pathcount) {
-        //move and/or turn
-		changed = moveSenseD(t, m, curx, cury, curz, curd, path[pathcount]);
+	while (path.size() != pathcount) {
+		//move and/or turn
+		changed = moveSenseD(t, m, cur, path[pathcount]);
 		//printMap(t, curx, cury, curz, curd);
 
-        //sense
+		//sense
         if (!changed) {
 			pathcount++;
-			changed = sense(t, m, curx, cury, curz, curd);
+			changed = sense(t, m, cur);
         }
 
-        //if map changed, reevaluate path
+		//if map changed, reevaluate path
         if (changed) {
-			aStarPath(t, path, pathlength, curx, cury, curz, curd, stopx, stopy, stopz);
+			path = aStarPath(t, cur, stop);
 			pathcount = 0;
 			changed = false;
 			//printMap(t, curx, cury, curz, curd);
@@ -577,60 +449,71 @@ void autopilot(node t[XSIZE][YSIZE][ZSIZE], node m[XSIZE][YSIZE][ZSIZE], int x0,
 	}
 }
 
-int main() {
-	node t[XSIZE][YSIZE][ZSIZE];	// nodes turtle sees
-	node m[XSIZE][YSIZE][ZSIZE];	// actual map nodes
-	initializeNodeCoords(t);
-	initializeNodeCoords(m);
-	t[startx][starty][startz].setd((startd + 2)%4);	// set starting direction
+vector<int> setupNodeArrays(node turtleMap[XSIZE][YSIZE][ZSIZE], node randomMap[XSIZE][YSIZE][ZSIZE], coordinate start, coordinate stop) {
+	vector<int> path;
+	bool isSolvable = false;
 
-	int path[XSIZE*YSIZE*ZSIZE], pathlength, lastpath[XSIZE*YSIZE*ZSIZE], lastpathlength;
-	bool solvable = false;
-	while (!solvable) {
-		generateRandomMaze(m);
-		aStarPath(m, path, pathlength, startx, starty, startz, startd, stopx, stopy, stopz);
-		if (m[stopx][stopy][stopz].getg()) { solvable = true; }
+	initializeNodeCoordinates(turtleMap);
+	turtleMap[start.x][start.y][start.z].setd((start.d + 2)%4); // set starting direction
+	initializeNodeCoordinates(randomMap);
+
+	unsigned int seed = time(NULL);//1462401552;
+	srand(seed);
+	cout << seed << endl;
+
+	while (!isSolvable) {
+		generateRandomMaze(randomMap);
+		path = aStarPath(randomMap, start, stop);
+		if (randomMap[stop.x][stop.y][stop.z].getg()) { isSolvable = true; }
 	}
-	printMap(m);
 
-	for (int i = 0; i < pathlength; i++) {
-		cout << path[i] << ", ";
-	}
-	cout << endl;
+	return path;
+}
 
-	cout << "Cost: " << m[stopx][stopy][stopz].getg() << endl;
+vector<int> moveUntilBestPath(node turtleMap[XSIZE][YSIZE][ZSIZE], node randomMap[XSIZE][YSIZE][ZSIZE], coordinate start, coordinate stop) {
+	vector<int> path, lastPath; // path array used to store previous path
+	bool pathsAreSame = false;
 
-	bool same = false;
-	int solvecount = -1;
+	while (!pathsAreSame) {
+		moveTo(turtleMap, randomMap, start, stop);
 
-	while (!same) {
-		autopilot(t, m, startx, starty, startz, startd, stopx, stopy, stopz);
-		printMap(t);
+		path = aStarPath(turtleMap, start, stop);
 
-		aStarPath(t, path, pathlength, startx, starty, startz, startd, stopx, stopy, stopz);
-
-		same = true;
-		for (int i = 0; i < XSIZE*YSIZE*ZSIZE; i++) {
-			if (path[i] != lastpath[i]) {
-				same = false;
-				for (int j = 0; j < XSIZE*YSIZE*ZSIZE; j++) { lastpath[j] = path[j]; }
-				break;
-			}
+		pathsAreSame = true;
+		if (path != lastPath) {
+			pathsAreSame = false;
+			lastPath = path;
+			printMap(turtleMap);
 		}
-		solvecount++;
 	}
-	//printMap(t);
-	cout << solvecount << endl;
 
-	aStarPath(t, path, pathlength, startx, starty, startz, startd, stopx, stopy, stopz);
-	for (int i = 0; i < pathlength; i++) {
-		cout << path[i] << ", ";
-	}
-	cout << endl;
+	return path;
+}
 
-	cout << "Cost: " << t[stopx][stopy][stopz].getg() << endl;
+int main() {
+	node turtleMap[XSIZE][YSIZE][ZSIZE]; // nodes turtle sees
+	node randomMap[XSIZE][YSIZE][ZSIZE]; // actual map nodes for turtle to discover
+	vector<int> path; // array of movement commands representing a path to the end-point
 
-	//printValues(t);
+	coordinate start, stop;
+	start.x = 0,         start.y = 0,         start.z = 0,         start.d = 0;
+	stop.x  = XSIZE - 1, stop.y  = YSIZE - 1, stop.z  = ZSIZE - 1, stop.d  = 0; // if final direction is -1, final direction will be ignored
+
+	path = setupNodeArrays(turtleMap, randomMap, start, stop);
+
+	printMap(randomMap);
+	printPath(path);
+	cout << "Cost: " << randomMap[stop.x][stop.y][stop.z].getg() << endl;
+
+	path = moveUntilBestPath(turtleMap, randomMap, start, stop);
+
+	//printMap(turtleMap);
+
+	path = aStarPath(turtleMap, start, stop);
+	printPath(path);
+	cout << "Cost: " << turtleMap[stop.x][stop.y][stop.z].getg() << endl;
+
+	printValues(turtleMap);
 
 	return 0;
 }
