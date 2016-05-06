@@ -7,6 +7,8 @@
 //#include <boost/archive/text_oarchive.hpp> // to be used for node class serialization
 //#include <boost/archive/text_iarchive.hpp> // tutorial: <http://www.boost.org/doc/libs/1_36_0/libs/serialization/doc/index.html>
 
+// TO DO: add time stamps and change to lua
+
 using namespace std;
 
 #define XSIZE 5
