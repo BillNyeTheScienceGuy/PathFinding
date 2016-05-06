@@ -1,17 +1,17 @@
-#include <iostream>
-#include <limits>	// to set int to max value
-#include <stdlib.h>
-#include <time.h>
-#include <vector>
+#include <iostream> // for I/O
+#include <limits>   // to set int to max value
+#include <stdlib.h> // for rand and srand
+#include <time.h>   // for time
+#include <vector>   // for vectors
 
 //#include <boost/archive/text_oarchive.hpp> // to be used for node class serialization
 //#include <boost/archive/text_iarchive.hpp> // tutorial: <http://www.boost.org/doc/libs/1_36_0/libs/serialization/doc/index.html>
 
 using namespace std;
 
-#define XSIZE 5 // upper limit: 159; lower limit: 2
-#define YSIZE 5 //
-#define ZSIZE 2 //
+#define XSIZE 5
+#define YSIZE 5
+#define ZSIZE 5
 
 int hfactor = 1; // higher the factor, faster the solution but not guaranteed to be the shortest solution
 
@@ -24,24 +24,24 @@ struct coordinate { // coordinates structure: holds x, y, z coordinates and dire
 
 class node {           // block map node (meant to be created as an array)
 	int id;            // block ID
-	int x, y, z;       // x, y, and z coords of node
+	int x, y, z;       // x, y, and z coords and facing of node
 	int g, h;          // g & h costs
 	int xp, yp, zp, d; // parent coordinates and direction of parent from current node
 	int status;        // unvisited/open/closed status (0/1/2 respectively)
 	bool changed;      // specifies if the node id has been changed
 	public:
 		node() {
-			id = 0;
-			x  = 0;
-			y  = 0;
-			z  = 0;
-			g  = 0; // g cost (cost needed to get to current node from start)
-			h  = 0; // h cost (projected cost to get from current node to end)
-			xp = 0;
-			yp = 0;
-			zp = 0;
-			d  = 0;
-			status = 0;
+			id      = 0;
+			x       = 0;
+			y       = 0;
+			z       = 0;
+			g       = 0; // g cost (cost needed to get to current node from start)
+			h       = 0; // h cost (projected cost to get from current node to end)
+			xp      = 0;
+			yp      = 0;
+			zp      = 0;
+			d       = 0;
+			status  = 0;
 			changed = false;
 		}
 		int abs(int n) { return (n < 0) ? -1*n : n; }
@@ -56,7 +56,7 @@ class node {           // block map node (meant to be created as an array)
 		int getyp() { return yp; }
 		int getzp() { return zp; }
 		coordinate getxyzp() { coordinate p; p.x = xp; p.y = yp; p.z = zp; return p; }
-		int getd()  { return d; }
+		int getd() { return d; }
 		int getstatus() { return status; }
 		bool idchanged() { return changed; }
 		void setid(int i) {
@@ -78,8 +78,9 @@ class node {           // block map node (meant to be created as an array)
 			xp = parent.getx();
 			yp = parent.gety();
 			zp = parent.getz();
-			if (z == zp) { // if z-coord hasn't changed
-				d = ((xp - x) > 0) + 2*((yp - y) < 0) + 3*((xp - x) < 0); // set direction to point at parent
+
+			if (z == zp) {
+				d = ((xp - x) > 0) + 2*((yp - y) < 0) + 3*((xp - x) < 0);// + 4*((zp - z) > 0) + 5*((zp - z) < 0); // set direction to point at parent
 			}
 			else {
 				d = parent.getd();
@@ -90,19 +91,39 @@ class node {           // block map node (meant to be created as an array)
 		void calcg(node parent, int finalD = -1) {
 			g = parent.getg(); // previous movement cost
 			int dir = ((parent.getx() - x) > 0) + 2*((parent.gety() - y) < 0) + 3*((parent.getx() - x) < 0); // direction to the parent currently being calculated
-			if (z == parent.getz()) { g += dircostmap[parent.getd()][dir]; } // x-y direction cost (uses direction faced in previous node and current direction facing now)
-			else { g += 1; } // z direction cost
-			if (finalD >= 0) { g += dircostmap[dir][(finalD + 2)%4] - 1; } // extra movement cost for adjusting direction on final node
+
+			if (z == parent.getz()) {
+				g += dircostmap[parent.getd()][dir]; // x-y direction cost (uses direction faced in previous node and current direction facing now)
+			}
+			else {
+				g += 1; // z direction cost
+			}
+
+			if (finalD >= 0) {
+				if (z == parent.getz()) {
+					g += dircostmap[dir][(finalD + 2)%4] - 1; // extra movement cost for adjusting direction on final node
+				}
+				else {
+					g += dircostmap[parent.getd()][(finalD + 2)%4] - 1; // for z-movement, node inherits parent's direction
+				}
+			}
 		}
 		void calch(int xf, int yf, int zf) {
-			int dir = 0;
-			if ((d%2 == 0)&&(xf - x != 0) || (d%2 == 1)&&(yf - y != 0)) { dir = 1; }
-			if ((d == 2)&&(yf < y) || (d == 3)&&(xf < x) || (d == 0)&&(yf > y) || (d == 1)&&(xf > x)) { dir = 2; }
-			h = abs(xf - x) + abs(yf - y) + abs(zf - z) + dir; // cost if all nodes travelled to finish from current node were walkable
+			int dirCost = 0;
+
+			if ((d%2 == 0)&&(xf - x != 0) || (d%2 == 1)&&(yf - y != 0)) { // set cost to 1 if destination is to the side of current facing
+					dirCost = 1;
+			}
+			if ((d == 2)&&(yf < y) || (d == 3)&&(xf < x) || (d == 0)&&(yf > y) || (d == 1)&&(xf > x)) { // set cost to 2 if destination is behind current position according to facing
+					dirCost = 2;
+			}
+
+			h = abs(xf - x) + abs(yf - y) + abs(zf - z) + dirCost; // cost if all nodes travelled to finish from current node were walkable
 			h *= hfactor;
 		}
 };
 
+// Set XYZ coordinates for each node in the map
 void initializeNodeCoordinates(node n[XSIZE][YSIZE][ZSIZE]) {
 	for (int i = 0; i < XSIZE; i++) {
 		for (int j = 0; j < YSIZE; j++) {
@@ -113,21 +134,22 @@ void initializeNodeCoordinates(node n[XSIZE][YSIZE][ZSIZE]) {
 	}
 }
 
+// Print detailed grid with specific values of each node
 void printValues(node n[XSIZE][YSIZE][ZSIZE]) {
 	for (int i = 0; i < ZSIZE; i++) {
 		cout << endl << " y" << endl << " ^" << endl;
 		for (int j = YSIZE - 1; j >= 0; j--) { // y-coords
 			cout << " |\t";
 			for (int k = 0; k < XSIZE; k++) { // x-coords
-				cout << n[k][j][i].getx() << "," << n[k][j][i].gety() << "," << n[k][j][i].getid() << "\t"; // node coords
+				cout << n[k][j][i].getx() << "," << n[k][j][i].gety() << "," << n[k][j][i].getid() << "\t"; // node coords & id
 			}
 			cout << endl << " |\t";
 			for (int k = 0; k < XSIZE; k++) {
-				cout << n[k][j][i].getxp() << "," << n[k][j][i].getyp() << "," << n[k][j][i].getd() << "\t"; // parent coords
+				cout << n[k][j][i].getxp() << "," << n[k][j][i].getyp() << "," << n[k][j][i].getd() << "\t"; // parent coords & direction
 			}
 			cout << endl << " |\t";
 			for (int k = 0; k < XSIZE; k++) {
-				cout << n[k][j][i].getg() << "," << n[k][j][i].geth() << "," << n[k][j][i].getstatus() << "\t"; // g and h values
+				cout << n[k][j][i].getg() << "," << n[k][j][i].geth() << "," << n[k][j][i].getstatus() << "\t"; // g and h values & status
 			}
 			cout << endl << " |" << endl;
 		}
@@ -139,6 +161,7 @@ void printValues(node n[XSIZE][YSIZE][ZSIZE]) {
 		}
 }
 
+// Print map to show obstacles
 void printMap(node n[XSIZE][YSIZE][ZSIZE], int curx = -1, int cury = -1, int curz = -1, int curd = -1) {
 	int dir;
 
@@ -186,6 +209,7 @@ void printMap(node n[XSIZE][YSIZE][ZSIZE], int curx = -1, int cury = -1, int cur
 	cout << endl;
 }
 
+// Print elements of vector in horzontal list
 void printPath(vector<int> path) {
 	for (int i = 0; i < path.size(); i++) {
 		cout << path[i] << " ";
@@ -193,6 +217,7 @@ void printPath(vector<int> path) {
 	cout << endl;
 }
 
+// Randomly block nodes in map
 void generateRandomMaze(node n[XSIZE][YSIZE][ZSIZE]) {
 	int percent = 30;
 
@@ -205,26 +230,31 @@ void generateRandomMaze(node n[XSIZE][YSIZE][ZSIZE]) {
 	}
 }
 
-void lowestF(node n[XSIZE][YSIZE][ZSIZE], int &x, int &y, int &z) {
+// Find the lowest F score in the valid nodes of the map
+coordinate lowestF(node n[XSIZE][YSIZE][ZSIZE]) {
 	int lowf = numeric_limits<int>::max();
-	x = -1; // x and y negatives if failed to find anything in open list
-	y = -1;
-	z = -1;
+	coordinate coord;
+	coord.x = -1; // x and y negatives if failed to find anything in open list
+	coord.y = -1;
+	coord.z = -1;
 
 	for (int i = 0; i < ZSIZE; i++) {
 		for (int j = 0; j < YSIZE; j++) {
 			for (int k = 0; k < XSIZE; k++) {
 				if (n[k][j][i].getid() == 0 && n[k][j][i].getstatus() == 1 && n[k][j][i].getf() < lowf) { // if walkable and on open list and lower than lowest F encountered
 					lowf = n[k][j][i].getf();
-					x = k;
-					y = j;
-					z = i;
+					coord.x = k;
+					coord.y = j;
+					coord.z = i;
 				}
 			}
 		}
 	}
+
+	return coord;
 }
 
+// Looks one block ahead, one block above, and one block below to see what's in those other nodes
 bool sense(node t[XSIZE][YSIZE][ZSIZE], node m[XSIZE][YSIZE][ZSIZE], coordinate cur) {
 	bool changed = false;
 
@@ -261,7 +291,8 @@ bool sense(node t[XSIZE][YSIZE][ZSIZE], node m[XSIZE][YSIZE][ZSIZE], coordinate 
 	return changed;
 }
 
-bool faceD(int &curd, int nexd) {
+// Rotate to face desired direction
+void faceD(int &curd, int nexd) {
 	switch (nexd) {
 		case 0:
 		case 1:
@@ -271,6 +302,7 @@ bool faceD(int &curd, int nexd) {
 	}
 }
 
+// Rotate and move forward in desired direction
 bool moveSenseD(node t[XSIZE][YSIZE][ZSIZE], node m[XSIZE][YSIZE][ZSIZE], coordinate &cur, int nexd) {
 	faceD(cur.d, nexd);
 	bool changed = sense(t, m, cur);
@@ -310,6 +342,7 @@ bool moveSenseD(node t[XSIZE][YSIZE][ZSIZE], node m[XSIZE][YSIZE][ZSIZE], coordi
 	return false;
 }
 
+// Set G score, H score, and status to 0 for all nodes in map
 void resetScoresAndStatus(node n[XSIZE][YSIZE][ZSIZE]) {
 	for (int i = 0; i < ZSIZE; i++) {
 		for (int j = 0; j < YSIZE; j++) {
@@ -322,6 +355,7 @@ void resetScoresAndStatus(node n[XSIZE][YSIZE][ZSIZE]) {
 	}
 }
 
+// Set scores and statuses of adjacent node while running A* algorithm
 void setAdjacentNodeScores(node n[XSIZE][YSIZE][ZSIZE], int x0, int y0, int z0, int x1, int y1, int z1, coordinate stop, bool boundaryCondition) {
 	int oldg;
 	bool nodeIsFinalNode = (x1 == stop.x) && (y1 == stop.y) && (z1 == stop.z);
@@ -344,7 +378,6 @@ void setAdjacentNodeScores(node n[XSIZE][YSIZE][ZSIZE], int x0, int y0, int z0, 
 					n[x1][y1][z1].setstatus(1);                                        // place in open list
 					n[x1][y1][z1].setxyzp(n[x0][y0][z0]);                              // set the node's parent to current node
 					n[x1][y1][z1].calcg(n[x0][y0][z0], nodeIsFinalNode ? stop.d : -1); // calculate the G score
-
 					n[x1][y1][z1].calch(stop.x, stop.y, stop.z);                       // calculate the H score
 					break;
 			}
@@ -352,43 +385,26 @@ void setAdjacentNodeScores(node n[XSIZE][YSIZE][ZSIZE], int x0, int y0, int z0, 
 	}
 }
 
-vector<int> aStarPath(node n[XSIZE][YSIZE][ZSIZE], coordinate start, coordinate stop) {
-	coordinate cur = start;
-	int oldg;
+// Reverses a vector
+vector<int> reverseVector(vector<int> v) {
+	int temp, index = v.size() - 1;
 
-	resetScoresAndStatus(n);
+	for (int i = 0; i < v.size()/2; i++) {
+		temp = v[i];
+		v[i] = v[index];
+		v[index] = temp;
 
-	n[start.x][start.y][start.z].setd((start.d + 2)%4);
-
-	//printMap(n, -1, -1, -1);
-
-	n[cur.x][cur.y][cur.z].setstatus(1); // open starting node
-	lowestF(n, cur.x, cur.y, cur.z); // set the current x, y coords to the node with the lowest F score
-	//n[curx][cury][curz].setstatus(2); // close starting node to prevent any parent change
-
-	while (n[stop.x][stop.y][stop.z].getstatus() != 2 && cur.x >= 0 && cur.y >= 0 && cur.z >= 0) { // while final node is not closed and open list is not empty
-
-		//printMap(n, curx, cury, curz);
-
-		setAdjacentNodeScores(n, cur.x, cur.y, cur.z, cur.x + 1, cur.y, cur.z, stop, cur.x + 1 < XSIZE);
-		setAdjacentNodeScores(n, cur.x, cur.y, cur.z, cur.x - 1, cur.y, cur.z, stop, cur.x > 0);
-		setAdjacentNodeScores(n, cur.x, cur.y, cur.z, cur.x, cur.y + 1, cur.z, stop, cur.y + 1 < YSIZE);
-		setAdjacentNodeScores(n, cur.x, cur.y, cur.z, cur.x, cur.y - 1, cur.z, stop, cur.y > 0);
-		setAdjacentNodeScores(n, cur.x, cur.y, cur.z, cur.x, cur.y, cur.z + 1, stop, cur.z + 1 < ZSIZE);
-		setAdjacentNodeScores(n, cur.x, cur.y, cur.z, cur.x, cur.y, cur.z - 1, stop, cur.z > 0);
-
-		n[cur.x][cur.y][cur.z].setstatus(2); // close current node
-		lowestF(n, cur.x, cur.y, cur.z); // set the current x, y coords to the node with the lowest F score
+		index--;
 	}
 
-	if (n[stop.x][stop.y][stop.z].getg() == 0) { // if no cost required to get to end, this means either start and/or finish are unwalkable or start = finish
-		vector<int> blank;
-		return blank;
-	}
+	return v;
+}
 
+// Outlines the best path by following the parents of each node
+vector<int> bestPath(node n[XSIZE][YSIZE][ZSIZE], coordinate start, coordinate stop) {
 	vector<int> path;
+	coordinate cur = stop;
 	int zdiff; // difference between node z and parent z
-	cur = stop;
 
 	while (cur.x != start.x || cur.y != start.y || cur.z != start.z) { // while not at starting node
 		zdiff = n[cur.x][cur.y][cur.z].getz() - n[cur.x][cur.y][cur.z].getzp(); // -1 if parent above, 0 if no change, 1 if parent below
@@ -405,43 +421,71 @@ vector<int> aStarPath(node n[XSIZE][YSIZE][ZSIZE], coordinate start, coordinate 
 		cur = n[cur.x][cur.y][cur.z].getxyzp(); // go to parent cell next
 	}
 
-	int temp, last = path.size() - 1;
-
-	for (int i = 0; i < path.size()/2; i++) { // reverse path array so resulting array is sequential instructions on which direction to go
-		temp = path[i];
-		path[i] = path[last];
-		path[last] = temp;
-
-		last--;
-	}
-
-	return path;
+	return reverseVector(path);
 }
 
+// Run A* maze-solving algorithm to find the least costly path from start to stop
+vector<int> aStarPath(node n[XSIZE][YSIZE][ZSIZE], coordinate start, coordinate stop) {
+	coordinate cur = start;
+
+	resetScoresAndStatus(n);
+
+	n[start.x][start.y][start.z].setd((start.d + 2)%4);
+
+	//printMap(n, -1, -1, -1);
+
+	n[cur.x][cur.y][cur.z].setstatus(1); // open starting node
+	cur = lowestF(n); // set the current x, y coords to the node with the lowest F score
+	//n[curx][cury][curz].setstatus(2); // close starting node to prevent any parent change
+
+	while (n[stop.x][stop.y][stop.z].getstatus() != 2 && cur.x >= 0 && cur.y >= 0 && cur.z >= 0) { // while final node is not closed and open list is not empty
+
+		//printMap(n, cur.x, cur.y, cur.z, cur.d);
+
+		setAdjacentNodeScores(n, cur.x, cur.y, cur.z, cur.x + 1, cur.y, cur.z, stop, cur.x + 1 < XSIZE);
+		setAdjacentNodeScores(n, cur.x, cur.y, cur.z, cur.x - 1, cur.y, cur.z, stop, cur.x > 0);
+		setAdjacentNodeScores(n, cur.x, cur.y, cur.z, cur.x, cur.y + 1, cur.z, stop, cur.y + 1 < YSIZE);
+		setAdjacentNodeScores(n, cur.x, cur.y, cur.z, cur.x, cur.y - 1, cur.z, stop, cur.y > 0);
+		setAdjacentNodeScores(n, cur.x, cur.y, cur.z, cur.x, cur.y, cur.z + 1, stop, cur.z + 1 < ZSIZE);
+		setAdjacentNodeScores(n, cur.x, cur.y, cur.z, cur.x, cur.y, cur.z - 1, stop, cur.z > 0);
+
+		n[cur.x][cur.y][cur.z].setstatus(2); // close current node
+		cur = lowestF(n); // set the current x, y coords to the node with the lowest F score
+	}
+
+	if (n[stop.x][stop.y][stop.z].getg() == 0) { // if no cost required to get to end, this means either start and/or finish are unwalkable or start = finish
+		vector<int> blank;
+		return blank;
+	}
+
+	return bestPath(n, start, stop);
+}
+
+// Traverses map, sensing and adding to nodes as it moves
 void moveTo(node t[XSIZE][YSIZE][ZSIZE], node m[XSIZE][YSIZE][ZSIZE], coordinate start, coordinate stop) {
 	coordinate cur = start;
-	int pathcount = 0;
+	int pathCount = 0;
 	vector<int> path;
-	int pathlength;
 	bool changed = false;
 
 	path = aStarPath(t, start, stop);
 	//printMap(t, curx, cury, curz, curd);
-	while (path.size() != pathcount) {
-		//move and/or turn
-		changed = moveSenseD(t, m, cur, path[pathcount]);
-		//printMap(t, curx, cury, curz, curd);
+	while (path.size() != pathCount) {
+		//turn and/or move
+		changed = moveSenseD(t, m, cur, path[pathCount]);
+		//printMap(t, cur.x, cur.y, cur.z, cur.d);
+		//printPath(path);
 
 		//sense
 		if (!changed) {
-			pathcount++;
-			changed = sense(t, m, cur);
+			pathCount++;
+			//changed = sense(t, m, cur);
 		}
 
 		//if map changed, reevaluate path
 		if (changed) {
 			path = aStarPath(t, cur, stop);
-			pathcount = 0;
+			pathCount = 0;
 			changed = false;
 			//printMap(t, curx, cury, curz, curd);
 			//cout << "New path..." << endl;
@@ -449,6 +493,7 @@ void moveTo(node t[XSIZE][YSIZE][ZSIZE], node m[XSIZE][YSIZE][ZSIZE], coordinate
 	}
 }
 
+// Initializes maps and generates a random solvable maze
 vector<int> setupNodeArrays(node turtleMap[XSIZE][YSIZE][ZSIZE], node randomMap[XSIZE][YSIZE][ZSIZE], coordinate start, coordinate stop) {
 	vector<int> path;
 	bool isSolvable = false;
@@ -457,7 +502,7 @@ vector<int> setupNodeArrays(node turtleMap[XSIZE][YSIZE][ZSIZE], node randomMap[
 	turtleMap[start.x][start.y][start.z].setd((start.d + 2)%4); // set starting direction
 	initializeNodeCoordinates(randomMap);
 
-	unsigned int seed = time(NULL);//1462401552;
+	unsigned int seed = time(NULL);//1462483860;
 	srand(seed);
 	cout << seed << endl;
 
@@ -470,6 +515,7 @@ vector<int> setupNodeArrays(node turtleMap[XSIZE][YSIZE][ZSIZE], node randomMap[
 	return path;
 }
 
+// Traverses map as many times as it takes to discover the best path (until the path repeats itself)
 vector<int> moveUntilBestPath(node turtleMap[XSIZE][YSIZE][ZSIZE], node randomMap[XSIZE][YSIZE][ZSIZE], coordinate start, coordinate stop) {
 	vector<int> path, lastPath; // path array used to store previous path
 	bool pathsAreSame = false;
@@ -513,7 +559,7 @@ int main() {
 	printPath(path);
 	cout << "Cost: " << turtleMap[stop.x][stop.y][stop.z].getg() << endl;
 
-	printValues(turtleMap);
+	//printValues(turtleMap);
 
 	return 0;
 }
