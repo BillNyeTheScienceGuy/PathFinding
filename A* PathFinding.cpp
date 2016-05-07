@@ -3,6 +3,7 @@
 #include <stdlib.h> // for rand and srand
 #include <time.h>   // for time
 #include <vector>   // for vectors
+#include <windows.h>
 
 //#include <boost/archive/text_oarchive.hpp> // to be used for node class serialization
 //#include <boost/archive/text_iarchive.hpp> // tutorial: <http://www.boost.org/doc/libs/1_36_0/libs/serialization/doc/index.html>
@@ -24,13 +25,14 @@ struct coordinate { // coordinates structure: holds x, y, z coordinates and dire
 	int d = -1; // -1 by default to show unassigned direction
 };
 
-class node {           // block map node (meant to be created as an array)
-	int id;            // block ID
-	int x, y, z;       // x, y, and z coords and facing of node
-	int g, h;          // g & h costs
-	int xp, yp, zp, d; // parent coordinates and direction of parent from current node
-	int status;        // unvisited/open/closed status (0/1/2 respectively)
-	bool changed;      // specifies if the node id has been changed
+class node {                // block map node (meant to be created as an array)
+	int id;                 // block ID
+	int x, y, z;            // x, y, and z coords and facing of node
+	int g, h;               // g & h costs
+	int xp, yp, zp, d;      // parent coordinates and direction of parent from current node
+	int status;             // unvisited/open/closed status (0/1/2 respectively)
+	bool changed;           // specifies if the node id has been changed
+	unsigned int timeStamp; // time stamp of when node was last IDed
 	public:
 		node() {
 			id      = 0;
@@ -61,9 +63,11 @@ class node {           // block map node (meant to be created as an array)
 		int getd() { return d; }
 		int getstatus() { return status; }
 		bool idchanged() { return changed; }
+		unsigned int gettime() { return timeStamp; }
 		void setid(int i) {
 			changed = (id != i) ? true : false;
 			id = i;
+			timeStamp = time(NULL);
 		}
 		void setx(int xi) { x = xi; }
 		void sety(int yi) { y = yi; }
@@ -288,6 +292,7 @@ bool sense(node t[XSIZE][YSIZE][ZSIZE], node m[XSIZE][YSIZE][ZSIZE], coordinate 
 		if (t[cur.x][cur.y][cur.z - 1].idchanged()) { changed = true; }
 	}
 
+	if (changed) { Sleep(1000); }
 	//printMap(t, curx, cury, curz, curd);
 
 	return changed;
@@ -475,7 +480,7 @@ void moveTo(node t[XSIZE][YSIZE][ZSIZE], node m[XSIZE][YSIZE][ZSIZE], coordinate
 	while (path.size() != pathCount) {
 		//turn and/or move
 		changed = moveSenseD(t, m, cur, path[pathCount]);
-		//printMap(t, cur.x, cur.y, cur.z, cur.d);
+		printMap(t, cur.x, cur.y, cur.z, cur.d);
 		//printPath(path);
 
 		//sense
