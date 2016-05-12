@@ -292,9 +292,6 @@ bool sense(node t[XSIZE][YSIZE][ZSIZE], node m[XSIZE][YSIZE][ZSIZE], coordinate 
 		if (t[cur.x][cur.y][cur.z - 1].idchanged()) { changed = true; }
 	}
 
-	if (changed) { Sleep(1000); }
-	//printMap(t, curx, cury, curz, curd);
-
 	return changed;
 }
 
@@ -416,13 +413,13 @@ vector<int> bestPath(node n[XSIZE][YSIZE][ZSIZE], coordinate start, coordinate s
 	while (cur.x != start.x || cur.y != start.y || cur.z != start.z) { // while not at starting node
 		zdiff = n[cur.x][cur.y][cur.z].getz() - n[cur.x][cur.y][cur.z].getzp(); // -1 if parent above, 0 if no change, 1 if parent below
 		switch (zdiff) {
-			case 1:                                                 // if parent below
-				path.push_back(4);                                  // set movement direction needed to get to current node to go up
+			case 1:                                                    // if parent below
+				path.push_back(4);                                     // set movement direction needed to get to current node to go up
 				break;
-			case -1:                                                // if parent above
-				path.push_back(5);                                  // set movement direction needed to get to current node to go down
+			case -1:                                                   // if parent above
+				path.push_back(5);                                     // set movement direction needed to get to current node to go down
 				break;
-			default:                                                // if on same z-coord as parent
+			default:                                                   // if on same z-coord as parent
 				path.push_back((n[cur.x][cur.y][cur.z].getd() + 2)%4); // set movement needed to get to current node from parent (reverse of direction to parent)
 		}
 		cur = n[cur.x][cur.y][cur.z].getxyzp(); // go to parent cell next
@@ -439,11 +436,9 @@ vector<int> aStarPath(node n[XSIZE][YSIZE][ZSIZE], coordinate start, coordinate 
 
 	n[start.x][start.y][start.z].setd((start.d + 2)%4);
 
-	//printMap(n, -1, -1, -1);
-
 	n[cur.x][cur.y][cur.z].setstatus(1); // open starting node
 	cur = lowestF(n); // set the current x, y coords to the node with the lowest F score
-	//n[curx][cury][curz].setstatus(2); // close starting node to prevent any parent change
+	//n[cur.x][cur.y][cur.z].setstatus(2); // close starting node to prevent any parent change
 
 	while (n[stop.x][stop.y][stop.z].getstatus() != 2 && cur.x >= 0 && cur.y >= 0 && cur.z >= 0) { // while final node is not closed and open list is not empty
 
@@ -480,13 +475,10 @@ void moveTo(node t[XSIZE][YSIZE][ZSIZE], node m[XSIZE][YSIZE][ZSIZE], coordinate
 	while (path.size() != pathCount) {
 		//turn and/or move
 		changed = moveSenseD(t, m, cur, path[pathCount]);
-		printMap(t, cur.x, cur.y, cur.z, cur.d);
-		//printPath(path);
 
 		//sense
 		if (!changed) {
 			pathCount++;
-			//changed = sense(t, m, cur);
 		}
 
 		//if map changed, reevaluate path
@@ -494,8 +486,6 @@ void moveTo(node t[XSIZE][YSIZE][ZSIZE], node m[XSIZE][YSIZE][ZSIZE], coordinate
 			path = aStarPath(t, cur, stop);
 			pathCount = 0;
 			changed = false;
-			//printMap(t, curx, cury, curz, curd);
-			//cout << "New path..." << endl;
 		}
 	}
 }
@@ -536,7 +526,7 @@ vector<int> moveUntilBestPath(node turtleMap[XSIZE][YSIZE][ZSIZE], node randomMa
 		if (path != lastPath) {
 			pathsAreSame = false;
 			lastPath = path;
-			printMap(turtleMap);
+			//printMap(turtleMap);
 		}
 	}
 
@@ -560,7 +550,7 @@ int main() {
 
 	path = moveUntilBestPath(turtleMap, randomMap, start, stop);
 
-	//printMap(turtleMap);
+	printMap(turtleMap);
 
 	path = aStarPath(turtleMap, start, stop);
 	printPath(path);
